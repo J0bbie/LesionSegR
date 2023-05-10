@@ -32,6 +32,12 @@ import_vcf <- function(path_vcf) {
 
     sprintf("\tFiltering on alt. DP >= 5: retaining %s of %s somatic variants.", base::length(sample_vcf), filter_ad) %>% ParallelLogger::logInfo()
 
+    # Filter on VAF.
+    filter_vaf <- base::length(sample_vcf)
+    sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$AF[, 1] >= 0.025, ]
+
+    sprintf("\tFiltering on VAF >= 0.05: retaining %s of %s somatic variants.", base::length(sample_vcf), filter_vaf) %>% ParallelLogger::logInfo()
+
     # Clean-up VEP annotations. ----
     sprintf("\tConverting and cleaning annotations") %>% ParallelLogger::logTrace()
     if (is.null(VariantAnnotation::info(sample_vcf)$CSQ)) stop(sprintf("This file does not contain a CSQ (annotation / VEP) column:\t%s", path_vcf))
@@ -137,20 +143,35 @@ import_vcf <- function(path_vcf) {
 
 # Determine origin based on mutual exclusivity of G1 / G2 mutant reads.
 determine_origin_mutual <- function(count_strain1, count_strain2) {
-    ifelse(
-        (count_strain1 <= 2 & count_strain2 <= 2) | (count_strain1 > 0 & count_strain2 > 0), "UA",
-            ifelse(count_strain1 > count_strain2, "G1", "G2")
-        )
-}
 
+    tibble::tibble(count_strain1, count_strain2) %>%
+        dplyr::mutate(
+            assignment = dplyr::case_when(
+                .default = "UA",
+                count_strain1 <= 2 & count_strain2 <= 2  ~ "UA",
+                (count_strain1 > 0 & count_strain2 > 0) ~ "UA",
+                count_strain1 > count_strain2 ~ "G1",
+                count_strain2 > count_strain1 ~ "G2"
+            )
+        ) %>%
+        dplyr::pull(.data$assignment)
+
+}
 
 # Determine origin based on mutual abundance of G1 / G2 mutant reads.
 determine_origin_ratio <- function(count_strain1, count_strain2) {
-    ifelse(count_strain1 <= 2 & count_strain2 <= 2, "UA",
-            ifelse(count_strain1 / count_strain2 >= 2, "G1",
-                ifelse(count_strain2 / count_strain1 >= 2, "G2", "UA")
+
+    tibble::tibble(count_strain1, count_strain2) %>%
+        dplyr::mutate(
+            assignment = dplyr::case_when(
+                .default = "UA",
+                count_strain1 <= 2 & count_strain2 <= 2 ~ "UA",
+                count_strain1 / count_strain2 >= 2 ~ "G1",
+                count_strain2 / count_strain1 >= 2 ~ "G2"
             )
-        )
+        ) %>%
+        dplyr::pull(.data$assignment)
+ 
 }
 
 
@@ -202,7 +223,7 @@ calculate_tmb <- function(x) {
         totalMutationsCoding = length(x[x$HGVSp != "", ]),
         totalG1 = sum(x$origin_mutant == "G1"),
         totalG2 = sum(x$origin_mutant == "G2"),
-        totalAU = sum(x$origin_mutant == "AU"),
+        totalUA = sum(x$origin_mutant == "UA"),
         sample = unique(x$sample)
     )
 }
