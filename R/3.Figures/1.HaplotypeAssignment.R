@@ -1,7 +1,11 @@
-# Libraries ----
+# Function: Generates a figure detailing the haplotype assignment of somatic variants (G1 vs. G2) per sample.
+# Author: J. van Riet
+
+# Load libraries. ----
 
 library(dplyr)
-library(ParallelLogger)
+library(patchwork)
+library(extrafont)
 
 # Import functions. ----
 
@@ -9,36 +13,77 @@ source("R/functions.R")
 source("R/themes.R")
 
 
-## QC - SNPsplit ----
+# Import data. ----
 
-# Read yaml files.
-read_snpsplit <- function(x) {
-    tibble::as_tibble(yaml::read_yaml(x)$Tagging) %>%
-        dplyr::mutate(
-            sample = basename(x) %>% stringr::str_replace_all(pattern = "_.*", replacement = "")
-        )
+reciprocal_results <- base::readRDS("data/reciprocal_results.rds")
+reciprocal_data <- base::readRDS("data/reciprocal_somaticvariants.rds")
+
+# Import metadata. ----
+
+metadata <- readxl::read_xlsx(
+    path = "~/Dropbox/Work/DKFZ/Projects/Odom - LesionSegregation/Draft/Tables/SupplTable1_OverviewSequencing.xlsx",
+    sheet = "WGS", trim_ws = TRUE
+) %>%
+    dplyr::filter(ASID %in% reciprocal_results$mutationalBurden$sample)
+
+
+# Check status of heterozygosity of CAST-SNPs in all mice. ----
+
+f <- "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/genome/SNPSplit/B6_CAST-EiJ/all_SNPs_CAST_EiJ_GRCm39.txt.gz"
+snps <- readr::read_tsv(f, col_names = c("ID", "chr", "start", "width", "allele"), show_col_types = FALSE) %>%
+    dplyr::mutate(ref = stringr::str_sub(allele, 1, 1), alt = stringr::str_sub(allele, 3, 3)) %>%
+    dplyr::mutate(haplotype = paste(pmin(ref, alt), pmax(ref, alt), sep = "/")) %>%
+    dplyr::select(chr, start = start, end = start, haplotype) %>%
+    GenomicRanges::makeGRangesFromDataFrame(., keep.extra.columns = TRUE) %>%
+    GenomicRanges::sort()
+
+# Retrieve the no. of nucleotide at each SNP position.
+
+get_pileup <- function(f, snps) {
+    Rsamtools::pileup(
+        Rsamtools::BamFile(f),
+        scanBamParam = Rsamtools::ScanBamParam(which = snps),
+        pileupParam = Rsamtools::PileupParam(distinguish_strands = FALSE, include_deletions = FALSE, max_depth = 100, include_insertions = FALSE)
+    ) %>%
+        dplyr::group_by(seqnames, pos) %>% 
+        dplyr::filter(count >= 2) %>% 
+        dplyr::summarise(
+            nNucleotides = dplyr::n_distinct(nucleotide),
+            haplotype = paste(pmin(nucleotide), collapse = "/")
+            ) %>% 
+        dplyr::ungroup() %>% 
+        dplyr::mutate(sample = gsub("_.*", "", basename(f)))
 }
 
-files_snpsplit <- list.files(path = "~/DKFZ/odomLab/LesionSegregration_F1/data/WGS/alignment/B6_CAST-EiJ/", pattern = "*.SNPsplit_report.yaml$", full.names = TRUE)
-data_snpsplit <- dplyr::bind_rows(lapply(files_snpsplit, read_snpsplit))
-data_snpsplit <- data_snpsplit %>% dplyr::inner_join(metadata, by = c("sample" = "ASID"))
+pileups <- list()
+pileups$normal1 <- get_pileup("/omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/WGS/alignment/B6_CAST-EiJ/AS-949304_sortedByCoord_markDup_BQSR_alleleFlagged.bam", snps)
+pileups$normal2 <- get_pileup("/omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/WGS/alignment/B6_CAST-EiJ/AS-949306_sortedByCoord_markDup_BQSR_alleleFlagged.bam", snps)
 
-data_snpsplit %>%
+saveRDS(pileups, "~/test/pileups_snps.rds")
+
+
+## QC - SNPsplit ----
+
+reciprocal_results$snpsplit %>%
     dplyr::filter(!grepl("f1-liver-normal", description)) %>%
-    dplyr::left_join(mutational_info) %>%
+    dplyr::left_join(reciprocal_results$mutationalBurden) %>%
+    dplyr::left_join(reciprocal_results$flagstats) %>%
     dplyr::mutate(
         PercReadsWithN = formattable::percent((.$N_containing_reads / .$total_reads), digits = 2),
         percent_g1 = formattable::percent(percent_g1 / 100, digits = 2),
         percent_g2 = formattable::percent(percent_g2 / 100, digits = 2),
         percent_unassignable = formattable::percent(percent_unassignable / 100, digits = 2),
         TMB = formattable::color_tile("grey90", max.color = "red")(round(TMB, 2)),
-        total_reads = formattable::color_tile("lightpink", max.color = "hotpink")(total_reads)
-
+        total_reads = formattable::color_tile("lightpink", max.color = "hotpink")(base::formatC(.$total_reads, drop0trailing = TRUE, big.mark = ",")),
+        properPairPerc = formattable::percent(`properly paired` / `paired in sequencing`, digits = 2)
     ) %>%
     dplyr::select(
         ASID = sample,
         Descr. = description,
         "Total reads" = total_reads,
+        "Mapped" = mapped,
+        "Paired" = `paired in sequencing`,
+        "Properly Paired (%)" = properPairPerc,
         "N-reads" = PercReadsWithN,
         "B6" = percent_g1,
         "CAST-EiJ" = percent_g2,
@@ -47,24 +92,25 @@ data_snpsplit %>%
         "Total" = totalMutations,
         "B6 " = totalG1,
         "CAST-EiJ " = totalG2,
-        "AU " = totalAU,
+        "UA " = totalUA,
     ) %>%
-    knitr::kable(escape = FALSE, align = "llcccccccccc") %>%
+    dplyr::arrange(-Total) %>% 
+    knitr::kable(escape = FALSE, align = "llcccccccccc", format.args = list(decimal.mark = '.', big.mark = ",")) %>%
     kableExtra::kable_styling(font_size = 15, full_width = TRUE, html_font = "Lexend", bootstrap_options = c("striped")) %>%
-    kableExtra::add_header_above(line_sep = 10, c(" " = 3, "SNPSplit (%)" = 4, "Somatic variants (no.)" = 5))
+    kableExtra::add_header_above(line_sep = 10, c(" " = 3, "Flagstats" = 3, "SNPSplit (% reads)" = 4, "Somatic variants (no.)" = 5))
 
 
 # QC - Visualize the distribution of strain-assigned somatic variants. ----
 
 dplyr::bind_rows(
-    lapply(data_reciprocal, function(x) tibble::as_tibble(S4Vectors::mcols(x)[c("sample", "G1_Alt", "G2_Alt", "origin_mutant")]))
+    base::lapply(reciprocal_data, function(x) tibble::as_tibble(S4Vectors::mcols(x)[c("sample", "G1_Alt", "G2_Alt", "origin_mutant")]))
 ) %>%
     dplyr::inner_join(metadata, by = c("sample" = "ASID")) %>% 
     dplyr::mutate(
         delta = G1_Alt - G2_Alt,
         assignment = dplyr::case_when(
-            origin_mutant == "G1" ~ "C57BL/6",
-            origin_mutant == "G2" ~ "CAST (EiJ)",
+            origin_mutant == "G1" ~ "B6",
+            origin_mutant == "G2" ~ "CAST",
             origin_mutant == "UA" ~ "Unassigned"
         )
     ) %>%
@@ -77,9 +123,8 @@ dplyr::bind_rows(
     ggplot2::scale_y_continuous(expand = c(0, 0.3), trans = scales::sqrt_trans(), breaks = c(0, 10, 50, 100, 250, 500, 1000, 2500, 5000, 7500), limits = c(0, 7500)) +
     ggplot2::scale_fill_manual(values = color_scheme, name = NULL) +
     ggplot2::labs(
-        x = "C57BL/6 - CAST (EiJ) SNP-assigned reads",
+        x = "B6 - CAST SNP-assigned reads",
         y = "Frequency<br><sup>(No. of somatic variants)</sup>"
     ) +
     ggplot2::facet_wrap(~ description, ncol = 3) +
-    theme_job()
-
+    theme_job

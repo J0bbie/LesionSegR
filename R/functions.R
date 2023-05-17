@@ -1,5 +1,4 @@
 library(dplyr)
-library(ParallelLogger)
 
 . <- NULL
 
@@ -36,7 +35,7 @@ import_vcf <- function(path_vcf) {
     filter_vaf <- base::length(sample_vcf)
     sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$AF[, 1] >= 0.025, ]
 
-    sprintf("\tFiltering on VAF >= 0.05: retaining %s of %s somatic variants.", base::length(sample_vcf), filter_vaf) %>% ParallelLogger::logInfo()
+    sprintf("\tFiltering on VAF >= 0.025: retaining %s of %s somatic variants.", base::length(sample_vcf), filter_vaf) %>% ParallelLogger::logInfo()
 
     # Clean-up VEP annotations. ----
     sprintf("\tConverting and cleaning annotations") %>% ParallelLogger::logTrace()
@@ -135,7 +134,6 @@ import_vcf <- function(path_vcf) {
 
     # Return clean-up VRanges.
     return(sample_vranges)
-
 }
 
 
@@ -143,24 +141,21 @@ import_vcf <- function(path_vcf) {
 
 # Determine origin based on mutual exclusivity of G1 / G2 mutant reads.
 determine_origin_mutual <- function(count_strain1, count_strain2) {
-
     tibble::tibble(count_strain1, count_strain2) %>%
         dplyr::mutate(
             assignment = dplyr::case_when(
                 .default = "UA",
-                count_strain1 <= 2 & count_strain2 <= 2  ~ "UA",
+                count_strain1 <= 2 & count_strain2 <= 2 ~ "UA",
                 (count_strain1 > 0 & count_strain2 > 0) ~ "UA",
                 count_strain1 > count_strain2 ~ "G1",
                 count_strain2 > count_strain1 ~ "G2"
             )
         ) %>%
         dplyr::pull(.data$assignment)
-
 }
 
 # Determine origin based on mutual abundance of G1 / G2 mutant reads.
 determine_origin_ratio <- function(count_strain1, count_strain2) {
-
     tibble::tibble(count_strain1, count_strain2) %>%
         dplyr::mutate(
             assignment = dplyr::case_when(
@@ -171,7 +166,6 @@ determine_origin_ratio <- function(count_strain1, count_strain2) {
             )
         ) %>%
         dplyr::pull(.data$assignment)
- 
 }
 
 
@@ -215,7 +209,7 @@ determine_origin_mixture <- function(x) {
 
 # Determine genome-wide TMB ----
 
-calculate_tmb <- function(x) {
+determine_mutational_burden <- function(x) {
     # Number of mappable ATCG in reference genome (GRCm39).
     tibble::tibble(
         TMB = length(x) / (2649938115 / 1E6),
@@ -229,17 +223,8 @@ calculate_tmb <- function(x) {
 }
 
 
-# Perform mutational signature analysis (mm10). ----
-determine_knownsignatures <- function(x) {
-    # Retrieve the COSMIC v3.2 signatures. ---
-
-    sprintf("\tRetrieving COSMIC (v3.2) signature matrices (mm10).") %>% ParallelLogger::logInfo()
-
-    sigs_cosmic <- list()
-    sigs_cosmic$sbs <- MutationalPatterns::get_known_signatures(muttype = "snv", source = "COSMIC_v3.2", genome = "mm10", incl_poss_artifacts = FALSE)
-    sigs_cosmic$indel <- MutationalPatterns::get_known_signatures(muttype = "indel", source = "COSMIC_v3.2", genome = "GRCh37", incl_poss_artifacts = FALSE)
-    sigs_cosmic$dbs <- MutationalPatterns::get_known_signatures(muttype = "dbs", source = "COSMIC_v3.2", genome = "mm10", incl_poss_artifacts = FALSE)
-
+# Function - Generate 96-context matrix. ----
+generate_mutmatrices_96 <- function(x) {
     # Convert mutations to correct GRanges for input into MutationalPatterns.
     convert_muts <- function(x, dbs = FALSE) {
         S4Vectors::mcols(x) <- S4Vectors::DataFrame(sample = x$sample)
@@ -263,52 +248,27 @@ determine_knownsignatures <- function(x) {
         return(x)
     }
 
-    # Calculate rel. contribution.
-    clean_sigs <- function(x) {
-        # Convert to tibble.
-        tibble::as_tibble(base::sweep(x, 2, base::colSums(x), "/") * 100, rownames = "Signature") %>%
-            # Melt.
-            tidyr::pivot_longer(cols = !dplyr::contains("Signature"), names_to = "sample", values_to = "relContribution")
-    }
-
-    # Retrieve mutational motifs. ---
-
-    sprintf("\tConverting GRangesLists into mutational matrices and performing mutational signature analysis.") %>% ParallelLogger::logInfo()
-
     data_mutmatrices <- list()
-    data_fittedsigs <- list()
+    x <- base::unlist(x)
 
-    ## SBS ---
-    data_mutmatrices$sbs <- convert_muts(x[x$mutType == "SNV", ]) %>%
+    ## SBS. ---
+    data_mutmatrices$sbs <- x[x$mutType == "SNV", ] %>%
+        convert_muts() %>%
         MutationalPatterns::mut_matrix(., ref_genome = "BSgenome.Mmusculus.UCSC.mm39")
 
-    data_fittedsigs$sbs <- MutationalPatterns::fit_to_signatures_strict(mut_matrix = data_mutmatrices$sbs, signatures = sigs_cosmic$sbs)
-    data_fittedsigs$sbs$relativeContribution <- clean_sigs(data_fittedsigs$sbs$fit_res$contribution)
-    data_fittedsigs$sbs$mutMatrix <- data_mutmatrices$sbs
-
-    ## InDel ---
-    data_mutmatrices$indel <- convert_muts(x[x$mutType == "InDel", ]) %>%
+    ## InDel. ---
+    data_mutmatrices$indel <- x[x$mutType == "InDel", ] %>%
+        convert_muts() %>%
         MutationalPatterns::get_indel_context(., ref_genome = "BSgenome.Mmusculus.UCSC.mm39") %>%
         MutationalPatterns::count_indel_contexts(.)
 
-    data_fittedsigs$indel <- MutationalPatterns::fit_to_signatures_strict(mut_matrix = data_mutmatrices$indel, signatures = sigs_cosmic$indel)
-    data_fittedsigs$indel$relativeContribution <- clean_sigs(data_fittedsigs$indel$fit_res$contribution)
-    data_fittedsigs$indel$mutMatrix <- data_mutmatrices$indel
+    ## DBS. ----
+    data_mutmatrices$dbs <- x[x$mutType == "MNV" & base::nchar(VariantAnnotation::ref(x)) == 2 & base::nchar(VariantAnnotation::alt(x)) == 2] %>%
+        convert_muts(., dbs = TRUE) %>%
+        MutationalPatterns::get_dbs_context(.) %>%
+        MutationalPatterns::count_dbs_contexts(.)
 
-    ## DBS ---
-    if (sum(x$mutType == "MNV") != 0) {
-        data_mutmatrices$dbs <- convert_muts(x[x$mutType == "MNV" & base::nchar(VariantAnnotation::ref(x)) == 2 & base::nchar(VariantAnnotation::alt(x)) == 2], dbs = TRUE) %>%
-            MutationalPatterns::get_dbs_context(.) %>%
-            MutationalPatterns::count_dbs_contexts(.)
+    # Return.
+    return(data_mutmatrices)
 
-        data_fittedsigs$dbs <- MutationalPatterns::fit_to_signatures_strict(mut_matrix = data_mutmatrices$dbs, signatures = sigs_cosmic$dbs)
-
-        data_fittedsigs$dbs$mutMatrix <- data_mutmatrices$dbs
-        data_fittedsigs$dbs$relativeContribution <- clean_sigs(data_fittedsigs$dbs$fit_res$contribution)
-    } else {
-        data_mutmatrices$dbs <- NULL
-    }
-
-    # Return cleaned signatures. ----
-    return(data_fittedsigs)
 }
