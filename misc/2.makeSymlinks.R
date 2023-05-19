@@ -30,8 +30,11 @@ write.table(files$CMD, file = '~/test/symlinkWTS.txt', row.names = F, sep = '\t'
 # Convert CRAM to .fastq
 x <- readxl::read_xlsx('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/metadata/SupplTable1_OverviewSequencing.xlsx', sheet = 'Ultima') %>% dplyr::filter(sequencingType == 'WGS')
 files <- tibble::tibble(f = list.files('/omics/gpcf/midterm/034400/data/UltimaGenomics/wgs/cram_files/', pattern = '*cabl.*cram$', full.names = T, ignore.case = T), recursive = T, pattern = 'cram$', full.names = T) %>% 
-    dplyr::mutate(UltimaID = gsub('.*-', '', gsub('-UGA.*', '', basename(f)))) %>% 
+    dplyr::mutate(
+        UltimaID = gsub('.*-', '', gsub('-UGA.*', '', basename(f))),
+        runID = gsub('-.*', '', basename(f))
+        ) %>% 
     dplyr::inner_join(x) %>% 
-    dplyr::mutate(CMD = sprintf('samtools fastq --reference /omics/gpcf/midterm/034400/data/UltimaGenomics/Reference/GRCm38.primary_assembly.genome.fa %s > /omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/UltimaGenomics/reads/untrimmed/%s.fastq', f, ASID))
+    dplyr::mutate(CMD = sprintf('samtools fastq --reference /omics/gpcf/midterm/034400/data/UltimaGenomics/Reference/GRCm38.primary_assembly.genome.fa %s > /omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/UltimaGenomics/reads/untrimmed/%s_run%s.fastq', f, ASID, runID))
 
 write.table(files$CMD, file = '~/test/UltimaWGS.txt', row.names = F, sep = '\t', quote = F, col.names = F)

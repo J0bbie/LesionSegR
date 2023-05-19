@@ -18,6 +18,7 @@ source("R/themes.R")
 reciprocal_results <- base::readRDS("data/reciprocal_results.rds")
 reciprocal_data <- base::readRDS("data/reciprocal_somaticvariants.rds")
 
+
 # Import metadata. ----
 
 metadata <- readxl::read_xlsx(
@@ -27,15 +28,19 @@ metadata <- readxl::read_xlsx(
     dplyr::filter(ASID %in% reciprocal_results$mutationalBurden$sample)
 
 
-# Check status of heterozygosity of CAST-SNPs in all mice. ----
+# Check status of heterogeneity of CAST-SNPs in all mice. ----
 
 f <- "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/genome/SNPSplit/B6_CAST-EiJ/all_SNPs_CAST_EiJ_GRCm39.txt.gz"
 snps <- readr::read_tsv(f, col_names = c("ID", "chr", "start", "width", "allele"), show_col_types = FALSE) %>%
     dplyr::mutate(ref = stringr::str_sub(allele, 1, 1), alt = stringr::str_sub(allele, 3, 3)) %>%
     dplyr::mutate(haplotype = paste(pmin(ref, alt), pmax(ref, alt), sep = "/")) %>%
-    dplyr::select(chr, start = start, end = start, haplotype) %>%
+    dplyr::select(chr, start = start, end = start, ref, alt, haplotype) %>%
     GenomicRanges::makeGRangesFromDataFrame(., keep.extra.columns = TRUE) %>%
     GenomicRanges::sort()
+
+# Determine possibility of SNP
+z = IRanges::subsetByOverlaps(unlist(reciprocal_data), snps)
+
 
 # Retrieve the no. of nucleotide at each SNP position.
 
@@ -59,8 +64,30 @@ pileups <- list()
 pileups$normal1 <- get_pileup("/omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/WGS/alignment/B6_CAST-EiJ/AS-949304_sortedByCoord_markDup_BQSR_alleleFlagged.bam", snps)
 pileups$normal2 <- get_pileup("/omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/WGS/alignment/B6_CAST-EiJ/AS-949306_sortedByCoord_markDup_BQSR_alleleFlagged.bam", snps)
 
-saveRDS(pileups, "~/test/pileups_snps.rds")
+# saveRDS(pileups, "~/odomLab/LesionSegregration_F1/pileups_snps.rds")
 
+
+pileups <- base::readRDS("~/odomLab/LesionSegregration_F1/pileups_snps.rds")
+z <- dplyr::full_join(pileups$normal1, pileups$normal2, by = c("seqnames", "pos"))
+zz = GenomicRanges::as.data.frame(snps) %>% dplyr::select(seqnames, pos = start, B6 = ref, CAST = alt, haplotype_MGP = haplotype)
+
+zzz <- z %>% dplyr::right_join(zz, by = c("seqnames", "pos"))
+
+zzz <- zzz %>% 
+    dplyr::mutate(
+        matchAny = dplyr::if_else(haplotype.x == haplotype_MGP | haplotype.y == haplotype_MGP, T, F),
+        matchBoth = dplyr::if_else(haplotype.x == haplotype_MGP & haplotype.y == haplotype_MGP, T, F),
+        matchB6 = dplyr::if_else(haplotype.x == B6 & haplotype.y == B6, T, F),
+        matchCAST = dplyr::if_else(haplotype.x == CAST & haplotype.y == CAST, T, F)
+    )
+
+table(zzz$matchAny)
+table(zzz$matchBoth)
+
+
+x <- zzz[!zzz$matchBoth,]
+table(x$haplotype.x == x$B6)
+table(x$haplotype.x == x$CAST)
 
 ## QC - SNPsplit ----
 
