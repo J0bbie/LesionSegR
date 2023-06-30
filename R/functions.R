@@ -145,7 +145,7 @@ determine_origin_mutual <- function(count_strain1, count_strain2) {
         dplyr::mutate(
             assignment = dplyr::case_when(
                 .default = "UA",
-                count_strain1 <= 2 & count_strain2 <= 2 ~ "UA",
+                count_strain1 <= 1 & count_strain2 <= 1 ~ "UA",
                 (count_strain1 > 0 & count_strain2 > 0) ~ "UA",
                 count_strain1 > count_strain2 ~ "G1",
                 count_strain2 > count_strain1 ~ "G2"
@@ -205,6 +205,26 @@ determine_origin_mixture <- function(x) {
     x <- dplyr::left_join(x, x_filter[, c("id", "origin")], by = "id")
 
     return(x$origin)
+}
+
+# Import and clean flagstats. ----
+
+read_flagstats <- function(x) {
+    readr::read_csv(x, col_names = FALSE, show_col_types = FALSE) %>%
+        dplyr::mutate(
+            X1 = base::trimws(X1),
+            X2 = as.integer(base::trimws(gsub(":.*", "", X2))),
+            sample = basename(x) %>% stringr::str_replace_all(pattern = "_.*", replacement = "")
+        ) %>%
+        dplyr::select(variable = X1, value = X2, sample)
+}
+
+# Import and clean SNPsplit reporting yamls. ----
+read_snpsplit <- function(x) {
+    tibble::as_tibble(yaml::read_yaml(x)$Tagging) %>%
+        dplyr::mutate(
+            sample = basename(x) %>% stringr::str_replace_all(pattern = "_.*", replacement = "")
+        )
 }
 
 # Determine genome-wide TMB ----

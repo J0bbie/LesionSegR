@@ -3,8 +3,9 @@ color_scheme <- c(
     "G1" = "#566EE7",
     "G2" = "#EA8686",
     "Unassigned" = "grey90",
-    "B6" = "#566EE7",
-    "CAST" = "#EA8686",
+    "B6" = "#39B185",
+    "CAST" = "#F7007C",
+    "C3H" = "#566EE7",
 
     "Tumor (Liver; Reciprocal B6/CAS)" = "#7382D3",
     "Tumor (Liver; Reciprocal CAS/B6)" = "#D75430"

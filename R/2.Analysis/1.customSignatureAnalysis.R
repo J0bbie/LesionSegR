@@ -23,13 +23,12 @@ reciprocal_results <- base::readRDS("data/reciprocal_results.rds")
 mut_matrixes_96 <- generate_mutmatrices_96(reciprocal_data)
 
 # Visualize the 96-context matrices. ----
-sigminer::show_catalogue(mut_matrixes_96$sbs, style = "cosmic", samples = c("AS-949290", "AS-949280"))
-
+sigminer::show_catalogue(mut_matrixes_96$indel,  mode = "ID", samples = c("AS-949282", "AS-949280"))
 
 # Perform custom signature analysis (SBS). ----
 
 ## Run bootstrapped NMF analysis. ----
-analysis_sbs <- sigminer::bp_extract_signatures(t(mut_matrixes_96$sbs), range = 2:8, cores = 10)
+analysis_sbs <- sigminer::bp_extract_signatures(t(mut_matrixes_96$sbs), n_bootstrap = 5, n_nmf_run = 5, range = 2:8, cores = 10)
 
 ## Determine the optimal number of signatures. ----
 sigminer::bp_show_survey2(analysis_sbs, highlight = 5)
