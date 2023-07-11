@@ -5,6 +5,12 @@ library(dplyr)
 # Import and clean-up VCF. ----
 
 import_vcf <- function(path_vcf) {
+    # Input validation ---
+
+    checkmate::assertFile(path_vcf)
+
+    # Import and clean-up VCF. ---
+
     sprintf("\tImporting VCF: %s", path_vcf) %>% ParallelLogger::logInfo()
 
     # Read in the VCF file.
@@ -151,23 +157,8 @@ determine_origin_mutual <- function(count_strain1, count_strain2) {
                 count_strain2 > count_strain1 ~ "G2"
             )
         ) %>%
-        dplyr::pull(.data$assignment)
+        dplyr::pull(assignment)
 }
-
-# Determine origin based on mutual abundance of G1 / G2 mutant reads.
-determine_origin_ratio <- function(count_strain1, count_strain2) {
-    tibble::tibble(count_strain1, count_strain2) %>%
-        dplyr::mutate(
-            assignment = dplyr::case_when(
-                .default = "UA",
-                count_strain1 <= 2 & count_strain2 <= 2 ~ "UA",
-                count_strain1 / count_strain2 >= 2 ~ "G1",
-                count_strain2 / count_strain1 >= 2 ~ "G2"
-            )
-        ) %>%
-        dplyr::pull(.data$assignment)
-}
-
 
 # Determine origin based on mixture model using at least 3 reads.
 determine_origin_mixture <- function(x) {
@@ -245,6 +236,7 @@ determine_mutational_burden <- function(x) {
 
 # Function - Generate 96-context matrix. ----
 generate_mutmatrices_96 <- function(x) {
+
     # Convert mutations to correct GRanges for input into MutationalPatterns.
     convert_muts <- function(x, dbs = FALSE) {
         S4Vectors::mcols(x) <- S4Vectors::DataFrame(sample = x$sample)
@@ -274,7 +266,7 @@ generate_mutmatrices_96 <- function(x) {
     ## SBS. ---
     data_mutmatrices$sbs <- x[x$mutType == "SNV", ] %>%
         convert_muts() %>%
-        MutationalPatterns::mut_matrix(., ref_genome = "BSgenome.Mmusculus.UCSC.mm39")
+        MutationalPatterns::mut_matrix(ref_genome = "BSgenome.Mmusculus.UCSC.mm39")
 
     ## InDel. ---
     data_mutmatrices$indel <- x[x$mutType == "InDel", ] %>%
@@ -290,5 +282,117 @@ generate_mutmatrices_96 <- function(x) {
 
     # Return.
     return(data_mutmatrices)
+}
 
+# Calculate Ti/Tv ratio. ----
+determine_ti_tv <- function(m_sbs) {
+    # Input validation --------------------------------------------------------
+
+    checkmate::assertMatrix(m_sbs)
+
+    sprintf("Calculating Ti/Tv ratios for %s sample(s).", dplyr::n_distinct(base::colnames(m_sbs))) %>% ParallelLogger::logInfo()
+
+
+    # Determine Ti/Tv mutations and ratio -------------------------------------
+
+    data_mutcontext <- m_sbs %>%
+        reshape2::melt() %>%
+        dplyr::select(mut_context = Var1, sample = Var2, value) %>%
+        dplyr::mutate(
+            mutational_context = base::gsub("\\[.*]", "", mut_context),
+            mutational_type = base::gsub("].*", "", base::gsub(".*\\[", "", mut_context)),
+            # Determine CpG mutations.
+            mutational_type = base::ifelse(base::grepl("C>T", mutational_type) & base::grepl("G$", mutational_context), base::paste(mutational_type, "(CpG)"), mutational_type),
+            # Determine Ti / Tv mutations.
+            mutational_type = dplyr::if_else(mutational_type %in% c("C>T", "C>T (CpG)", "T>C", "G>A", "A>T"),
+                base::paste(mutational_type, "Ti", sep = "\n"), base::paste(mutational_type, "Tv", sep = "\n")
+            )
+        ) %>%
+        # Count total mut. contexts per sample.
+        dplyr::group_by(sample, mutational_type) %>%
+        dplyr::summarise(total_value = base::sum(value)) %>%
+        dplyr::ungroup() %>%
+        # Determine Ti/Tv ratio per sample.
+        dplyr::mutate(type_ti_tv = ifelse(grepl("\nTv", mutational_type), "Transversion", "Transition")) %>%
+        dplyr::group_by(sample, type_ti_tv) %>%
+        dplyr::mutate(totalgroup_sample = sum(total_value)) %>%
+        dplyr::ungroup() %>%
+        dplyr::group_by(sample) %>%
+        dplyr::mutate(TiTvRatio = unique(totalgroup_sample[type_ti_tv == "Transition"]) / unique(totalgroup_sample[type_ti_tv == "Transversion"])) %>%
+        dplyr::ungroup()
+
+
+    # Return statement --------------------------------------------------------
+
+    return(data_mutcontext)
+}
+
+# Run dN/dS analysis. ----
+run_dnds <- function(data_muts) {
+
+
+#' Generate dN/dS database. ----
+#' ENSEMBLv109_GRCm39 <- readr::read_tsv("~/Downloads/mart_export.txt") %>%
+#'     dplyr::filter(!grepl("_", `Chromosome/scaffold name`)) %>%
+#'     dplyr::filter(`CDS Length` %% 3 == 0) %>%
+#'     dplyr::filter(!is.na(`Genomic coding start`)) %>%
+#     dplyr::filter(!grepl("^AC[0-9]", `Gene name`)) %>%
+#'     dplyr::filter(!grepl("^AP00|^RP11-", `Gene name`)) %>%
+#'     dplyr::filter(!grepl("\\.", `Gene name`)) %>%
+#'    dplyr::select(
+#'         "gene.id" = `Gene stable ID`,
+#'         "gene.name" = `Gene name`,
+#'         "cds.id" = `Protein stable ID`,
+#'         "chr" = `Chromosome/scaffold name`,
+#'         "chr.coding.start" = `Genomic coding start`,
+#'         "chr.coding.end" = `Genomic coding end`,
+#'         "cds.start" = `CDS start`,
+#'         "cds.end" = `CDS end`,
+#'         "length" = `CDS Length`,
+#'         "strand" = Strand
+#'     ) %>%
+#' dplyr::mutate(chr = paste0("chr", chr))
+# 'write.table(ENSEMBLv109_GRCm39, file = "~/Downloads/mart_export_filtered.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+#' pathCDS = '~/test/mart_export_filtered.txt'
+#' pathFasta = '/omics/groups/OE0538/internal/projects/sharedData/GRCm39/genome/GRCm39.primary_assembly.genome.fa'
+#' dndscv::buildref(cdsfile = pathCDS, genomefile = pathFasta, outfile = '~/test/refCDS_ENSEMBLv109_GRCm39.rda', excludechrs='chrMT', useids = TRUE)
+
+
+    # Input validation --------------------------------------------------------
+
+    checkmate::assertClass(data_muts, classes = "SimpleVRangesList")
+
+    sprintf("Performing dN/dS analysis on %s unique samples.\nThis can take some minutes.", dplyr::n_distinct(data_muts$sample)) %>% ParallelLogger::logInfo()
+
+
+    # Perform dN/dS -----------------------------------------------------------
+
+    data_muts <- base::unlist(data_muts)
+
+    # Convert mutations to data.frame and remove chr prefix.
+    data_muts_df <- data.frame(
+        sampleID = data_muts$sample,
+        chr = as.character(GenomeInfoDb::seqnames(data_muts)),
+        pos = as.numeric(IRanges::start(data_muts)),
+        ref = VariantAnnotation::ref(data_muts),
+        mut = VariantAnnotation::alt(data_muts)
+    )
+
+    # Perform dN/dS algorithm.
+    output_dnds <- dndscv::dndscv(data_muts_df, refdb = "~/Downloads/refCDS_ENSEMBLv109_GRCm39.rda", outp = 3)
+
+    # Remove large (unused) annotation database.
+    output_dnds$annotmuts <- NULL
+
+
+    # Combine final results ---------------------------------------------------
+
+    output_dnds$finalOutput <- output_dnds$sel_cv %>%
+        dplyr::left_join(output_dnds$sel_loc %>% dplyr::select(gene_name, qall_loc, qmis_loc), by = c("gene_name" = "gene_name")) %>%
+        dplyr::filter(qglobal_cv <= 0.1 | qallsubs_cv <= 0.1 | qtrunc_cv <= 0.1 | qmis_cv <= 0.1 | qall_loc <= 0.1 | qmis_loc <= 0.1) %>%
+        dplyr::mutate(SYMBOL = gsub(".*:", "", gene_name), ENSEMBL = gsub(":.*", "", gene_name), gene_name = NULL)
+
+    # Return statement --------------------------------------------------------
+
+    return(output_dnds)
 }
