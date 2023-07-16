@@ -1,0 +1,43 @@
+Type: Package
+Package: LesionSegR
+Title: Various functions for importing and analysis F1-mice patterns
+Version: 0.1.0
+Authors@R: 
+    person("Job", "van Riet", , "job.vanriet@dkfz.de", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-7767-7923"))
+Maintainer: Job van Riet <j.vanriet@dkfz.de>
+Description: Contains various functions for analyzing WGS/WTS data of
+    F1-mice.
+License: GPL-3 + file LICENSE
+BugReports: https://github.com/J0bbie/LesionSegR/issues/
+Depends:
+    R (>= 4.2)
+Imports:
+    Biostrings,
+    checkmate (>= 2.2.0),
+    dndscv,
+    dplyr (>= 1.1.0),
+    futile.logger (>= 1.4.3),
+    future.apply,
+    GenomeInfoDb,
+    GenomicRanges,
+    glue,
+    IRanges,
+    MutationalPatterns,
+    readr,
+    reshape2,
+    S4Vectors,
+    stringr,
+    tibble,
+    tidyr,
+    VariantAnnotation,
+    yaml
+Remotes: 
+    bioc::3.16/Biostrings,
+    bioc::3.16/GenomeInfoDb,
+    bioc::3.16/GenomicRanges,
+    bioc::3.16/IRanges,
+    bioc::3.16/S4Vectors
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.2.3

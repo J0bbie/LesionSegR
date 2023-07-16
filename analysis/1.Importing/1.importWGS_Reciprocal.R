@@ -4,11 +4,11 @@
 # Libraries ----
 
 library(dplyr)
-library(ParallelLogger)
+library(future)
+library(LesionSegR)
 
-# Import functions. ----
-
-source("R/functions.R")
+# Parallel settings.
+future::plan(future::multisession, workers = 10)
 
 # Import metadata. ----
 
@@ -22,15 +22,8 @@ metadata <- readxl::read_xlsx(
 # Import somatic variants and CNV. ----
 
 ## Import somatic variants. ----
-files_vcf <- list.files(path = "~/Downloads/VCF", pattern = paste(paste0(metadata$sample, "_withStrainCounts.vcf.gz$"), collapse = "|"), full.names = TRUE)
-data_somaticvariants <- pbapply::pblapply(files_vcf, import_vcf, cl = 10)
-names(data_somaticvariants) <- vapply(data_somaticvariants, function(x) unique(x$sample), "")
-
-# Remove matched-normals.
-data_somaticvariants <- data_somaticvariants[names(data_somaticvariants) %in% metadata$sample]
-
-# Convert to VRangesList
-data_somaticvariants <- VariantAnnotation::VRangesList(data_somaticvariants)
+files_vcf <- base::list.files(path = "~/Downloads/VCF", pattern = base::paste(base::paste0(metadata$sample, "_withStrainCounts.vcf.gz$"), collapse = "|"), full.names = TRUE)
+data_somaticvariants <- LesionSegR::import_vcf(files_vcf)
 
 
 ## Determine WGS characteristics. ----
@@ -40,21 +33,20 @@ reciprocal_results <- list()
 ## Flagstats. ----
 
 files_flagstats <- list.files(path = "~/DKFZ/odomLab/LesionSegregration_F1/results/alignment/C57BL_6J_CAST_EiJ/WGS/", pattern = "*.flagstats$", full.names = TRUE)
-reciprocal_results$flagstats <- tibble::as_tibble(dplyr::bind_rows(base::lapply(files_flagstats, read_flagstats)) %>% reshape2::dcast(., sample ~ variable)) %>%
-    dplyr::filter(sample %in% metadata$sample)
+reciprocal_results$flagstats <- LesionSegR::read_flagstats(files_flagstats)
 
 ## SNPSplit. ----
 
 files_snpsplit <- list.files(path = "~/DKFZ/odomLab/LesionSegregration_F1/results/alignment/C57BL_6J_CAST_EiJ/WGS/", pattern = "*.SNPsplit_report.yaml$", full.names = TRUE)
-reciprocal_results$snpsplit <- dplyr::bind_rows(base::lapply(files_snpsplit, read_snpsplit)) %>% dplyr::filter(sample %in% metadata$sample)
-
+reciprocal_results$snpsplit <- LesionSegR::read_snpsplit_yaml(files_snpsplit)
 
 ## Determine mutational burden. ----
-reciprocal_results$mutationalBurden <- dplyr::bind_rows(base::lapply(data_somaticvariants, determine_mutational_burden))
+reciprocal_results$mutationalBurden <- LesionSegR::determine_mutational_burden(data_somaticvariants)
+
 
 ## Generate the 96-context matrices. ----
 
-reciprocal_results$mut_matrixes_96 <- generate_mutmatrices_96(data_somaticvariants)
+reciprocal_results$mut_matrixes_96 <- LesionSegR::generate_mutmatrices_96(data_somaticvariants)
 
 ## Perform bootstrapped COSMIC-signature analysis. ----
 
@@ -68,11 +60,11 @@ reciprocal_results$signature_fit_indel <- MutationalPatterns::fit_to_signatures_
 
 ## Determine no. of Ti/Tv and ratio. -----
 
-reciprocal_results$ti_tv <- determine_ti_tv(reciprocal_results$mut_matrixes_96$sbs)
+reciprocal_results$ti_tv <- LesionSegR::determine_ti_tv(reciprocal_results$mut_matrixes_96$sbs)
 
 ## dN/dS. ----
 
-reciprocal_results$dNdS <- run_dnds(data_somaticvariants)
+reciprocal_results$dNdS <- LesionSegR::run_dnds(data_somaticvariants, path_db = "~/Downloads/refCDS_ENSEMBLv109_GRCm39.rda")
 
 
 # Save the data. ----
