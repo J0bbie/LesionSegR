@@ -31,7 +31,6 @@
 #' @importFrom dplyr %>%
 #' @export
 run_dnds <- function(data_muts, path_db = "~/Downloads/refCDS_ENSEMBLv109_GRCm39.rda") {
-
     # Input validation --------------------------------------------------------
 
     checkmate::assertClass(data_muts, classes = "SimpleVRangesList")

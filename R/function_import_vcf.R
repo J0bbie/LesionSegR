@@ -14,8 +14,7 @@ import_vcf <- function(x) {
     checkmate::assertFile(x)
 
     # Import and clean-up VCF. ---
-    data_somaticvariants <- future.apply::future_lapply(x, function(path_vcf){
-
+    data_somaticvariants <- future.apply::future_lapply(x, function(path_vcf) {
         futile.logger::flog.info(glue::glue("Importing VCF: {path_vcf}"))
 
         # Read in the VCF file.
@@ -152,5 +151,4 @@ import_vcf <- function(x) {
     data_somaticvariants <- VariantAnnotation::VRangesList(data_somaticvariants)
 
     return(data_somaticvariants)
-
 }

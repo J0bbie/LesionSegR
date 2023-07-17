@@ -4,7 +4,6 @@
 #' @importFrom dplyr %>%
 #' @export
 determine_ti_tv <- function(m_sbs) {
-
     # Input validation ----
 
     checkmate::assertMatrix(m_sbs)
@@ -22,7 +21,7 @@ determine_ti_tv <- function(m_sbs) {
             mutational_type = base::ifelse(base::grepl("C>T", mutational_type) & base::grepl("G$", mutational_context), base::paste(mutational_type, "(CpG)"), mutational_type),
             # Determine Ti / Tv mutations.
             mutational_type = dplyr::if_else(mutational_type %in% c("C>T", "C>T (CpG)", "T>C", "G>A", "A>T"),
-                                             base::paste(mutational_type, "Ti", sep = "\n"), base::paste(mutational_type, "Tv", sep = "\n")
+                base::paste(mutational_type, "Ti", sep = "\n"), base::paste(mutational_type, "Tv", sep = "\n")
             )
         ) %>%
         # Count total mut. contexts per sample.

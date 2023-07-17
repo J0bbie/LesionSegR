@@ -4,7 +4,6 @@
 #' @importFrom dplyr %>%
 #' @export
 generate_mutmatrices_96 <- function(x) {
-
     # Check input. ----
 
     checkmate::checkClass(x, "SimpleVRangesList")

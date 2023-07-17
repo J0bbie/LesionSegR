@@ -15,7 +15,11 @@ run_dnds(data_muts, path_db = "~/Downloads/refCDS_ENSEMBLv109_GRCm39.rda")
 (list): Tibble with
 }
 \description{
-The database was generated using the following code:
+Perform dN/dS analysis.
+}
+\details{
+The database can be generated using the following code:
+
 ENSEMBLv109_GRCm39 <- readr::read_tsv("~/Downloads/mart_export.txt") %>%
     dplyr::filter(!grepl("_", `Chromosome/scaffold name`)) %>%
     dplyr::filter(`CDS Length` %% 3 == 0) %>%

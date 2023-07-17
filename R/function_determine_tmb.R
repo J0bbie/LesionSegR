@@ -4,11 +4,9 @@
 #' @importFrom dplyr %>%
 #' @export
 determine_mutational_burden <- function(x) {
-
     checkmate::checkClass(x, "SimpleVRangesList")
 
-    dplyr::bind_rows(future.apply::future_lapply(x, function(y){
-
+    dplyr::bind_rows(future.apply::future_lapply(x, function(y) {
         tibble::tibble(
             # Number of mappable ATCG in reference genome (GRCm39).
             TMB = length(y) / (2649938115 / 1E6),
@@ -20,5 +18,4 @@ determine_mutational_burden <- function(x) {
             sample = unique(y$sample)
         )
     }))
-
 }
