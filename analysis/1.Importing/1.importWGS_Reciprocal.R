@@ -8,7 +8,7 @@ library(future)
 library(LesionSegR)
 
 # Parallel settings.
-future::plan(future::multisession, workers = 10)
+future::plan(future::multicore, workers = 10)
 
 # Import metadata. ----
 
@@ -54,9 +54,9 @@ signatures_sbs <- MutationalPatterns::get_known_signatures(muttype = "snv", sour
 signatures_dbs <- MutationalPatterns::get_known_signatures(muttype = "dbs", source = "COSMIC_v3.2", genome = "mm10")
 signatures_indel <- MutationalPatterns::get_known_signatures(muttype = "indel", source = "COSMIC_v3.2", genome = "GRCh37")
 
-reciprocal_results$signature_fit_sbs <- MutationalPatterns::fit_to_signatures_bootstrapped(reciprocal_results$mut_matrixes_96$sbs, signatures_sbs, n_boots = 50, method = "strict")
-reciprocal_results$signature_fit_dbs <- MutationalPatterns::fit_to_signatures_bootstrapped(reciprocal_results$mut_matrixes_96$dbs, signatures_dbs, n_boots = 50, method = "strict")
-reciprocal_results$signature_fit_indel <- MutationalPatterns::fit_to_signatures_bootstrapped(reciprocal_results$mut_matrixes_96$indel, signatures_indel, n_boots = 50, method = "strict")
+reciprocal_results$signature_fit_sbs <- MutationalPatterns::fit_to_signatures_bootstrapped(reciprocal_results$mut_matrixes_96$sbs, signatures_sbs, n_boots = 100, method = "strict")
+reciprocal_results$signature_fit_dbs <- MutationalPatterns::fit_to_signatures_bootstrapped(reciprocal_results$mut_matrixes_96$dbs, signatures_dbs, n_boots = 100, method = "strict")
+reciprocal_results$signature_fit_indel <- MutationalPatterns::fit_to_signatures_bootstrapped(reciprocal_results$mut_matrixes_96$indel, signatures_indel, n_boots = 100, method = "strict")
 
 ## Determine no. of Ti/Tv and ratio. -----
 
