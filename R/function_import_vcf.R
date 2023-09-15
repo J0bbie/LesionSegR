@@ -18,7 +18,7 @@ import_vcf <- function(x) {
         futile.logger::flog.info(glue::glue("Importing VCF: {path_vcf}"))
 
         # Read in the VCF file.
-        sample_vcf <- VariantAnnotation::readVcf(path_vcf, genome = "GRCm39")
+        sample_vcf <- VariantAnnotation::readVcf(path_vcf, genome = "GRCm39", param = VariantAnnotation::ScanVcfParam(samples = 'TUMOR'))
 
         # Expand multi-allelic hits to separate rows.
         sample_vcf <- VariantAnnotation::expand(sample_vcf)
@@ -27,26 +27,62 @@ import_vcf <- function(x) {
         filter_pass <- base::length(sample_vcf)
         sample_vcf <- sample_vcf[sample_vcf@fixed$FILTER == "PASS", ]
 
-        futile.logger::flog.info(glue::glue("Filtering PASS-only: retaining  of {filter_pass} somatic variants."))
+        futile.logger::flog.info(glue::glue("Filtering PASS-only: retaining {base::length(sample_vcf)} of {filter_pass} somatic variants."))
 
         # Filter on DP.
         filter_dp <- base::length(sample_vcf)
         sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$DP[, 1] >= 10, ]
-
+        
         futile.logger::flog.info(glue::glue("Filtering on DP >= 10: retaining {base::length(sample_vcf)} of {filter_dp} somatic variants."))
-
-        # Filter on AD.
-        filter_ad <- base::length(sample_vcf)
-        sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$AD[, , 2] >= 5, ]
-
-        futile.logger::flog.info(glue::glue("Filtering on alt. DP >= 5: retaining {base::length(sample_vcf)} of {filter_ad} somatic variants."))
-
+        
+        # Calculate AD and VAF
+        ad_info <- base::lapply(seq_along(sample_vcf), function(i){
+            row = sample_vcf[i]
+            
+            if(VariantAnnotation::isSNV(row)){
+                
+                ref_count <- switch (as.character(VariantAnnotation::ref(row)),
+                                     "A" = VariantAnnotation::geno(row)$AU[, , 1],
+                                     "T" = VariantAnnotation::geno(row)$TU[, , 1],
+                                     "G" = VariantAnnotation::geno(row)$GU[, , 1],
+                                     "C" = VariantAnnotation::geno(row)$CU[, , 1]
+                )
+                
+                alt_count <- switch (as.character(VariantAnnotation::alt(row)),
+                                     "A" = VariantAnnotation::geno(row)$AU[, , 1],
+                                     "T" = VariantAnnotation::geno(row)$TU[, , 1],
+                                     "G" = VariantAnnotation::geno(row)$GU[, , 1],
+                                     "C" = VariantAnnotation::geno(row)$CU[, , 1]
+                )
+            }else{
+                ref_count <- VariantAnnotation::geno(row)$TAR[, , 1]
+                alt_count <- VariantAnnotation::geno(row)$TIR[, , 1]
+            }
+            
+            vaf <- alt_count / (ref_count + alt_count)
+            
+            return(tibble::tibble(i, ref_count, alt_count, vaf))
+            
+        })
+            
+        ad_info <- dplyr::bind_rows(ad_info)
+        
+        VariantAnnotation::info(sample_vcf)$VAF <- ad_info$vaf
+        VariantAnnotation::info(sample_vcf)$ref_count <- ad_info$ref_count
+        VariantAnnotation::info(sample_vcf)$alt_count <- ad_info$alt_count
+        
+        # Filter on alt_count.
+        filter_alt <- base::length(sample_vcf)
+        sample_vcf <- sample_vcf[VariantAnnotation::info(sample_vcf)$alt_count >= 5, ]
+        
+        futile.logger::flog.info(glue::glue("Filtering on alt. count >= 5: retaining {base::length(sample_vcf)} of {filter_alt} somatic variants."))
+        
         # Filter on VAF.
         filter_vaf <- base::length(sample_vcf)
-        sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$AF[, 1] >= 0.025, ]
-
+        sample_vcf <- sample_vcf[VariantAnnotation::info(sample_vcf)$VAF >= 0.025, ]
+        
         futile.logger::flog.info(glue::glue("Filtering on VAF >= 0.025: retaining {base::length(sample_vcf)} of {filter_vaf} somatic variants."))
-
+        
         # Clean-up VEP annotations. ----
         futile.logger::flog.info("Converting and cleaning annotations")
         if (is.null(VariantAnnotation::info(sample_vcf)$CSQ)) stop(sprintf("This file does not contain a CSQ (annotation / VEP) column:\t{path_vcf}"))
@@ -94,21 +130,21 @@ import_vcf <- function(x) {
             ranges = IRanges::IRanges(GenomicRanges::start(sample_vcf), GenomicRanges::end(sample_vcf)),
             ref = VariantAnnotation::ref(sample_vcf),
             alt = VariantAnnotation::alt(sample_vcf),
-            refDepth = VariantAnnotation::geno(sample_vcf)$AD[, , 1],
-            altDepth = VariantAnnotation::geno(sample_vcf)$AD[, , 2],
+            refDepth = VariantAnnotation::info(sample_vcf)$ref_count,
+            altDepth = VariantAnnotation::info(sample_vcf)$alt_count,
             totalDepth = VariantAnnotation::geno(sample_vcf)$DP[, 1],
-            sampleNames = VariantAnnotation::header(sample_vcf)@samples,
+            sampleNames = base::gsub("_VEP_haplocounted.vcf.gz", "", basename(path_vcf)),
 
             # Strain-specific counts.
             UA_Ref = VariantAnnotation::geno(sample_vcf)$UA[, , 1],
-            G1_Ref = VariantAnnotation::geno(sample_vcf)$G1[, , 1],
-            G2_Ref = VariantAnnotation::geno(sample_vcf)$G2[, , 1],
+            H1_Ref = VariantAnnotation::geno(sample_vcf)$H1[, , 1],
+            H2_Ref = VariantAnnotation::geno(sample_vcf)$H2[, , 1],
             UA_Alt = VariantAnnotation::geno(sample_vcf)$UA[, , 2],
-            G1_Alt = VariantAnnotation::geno(sample_vcf)$G1[, , 2],
-            G2_Alt = VariantAnnotation::geno(sample_vcf)$G2[, , 2],
+            H1_Alt = VariantAnnotation::geno(sample_vcf)$H1[, , 2],
+            H2_Alt = VariantAnnotation::geno(sample_vcf)$H2[, , 2],
 
             # Scores.
-            VAF = VariantAnnotation::geno(sample_vcf)$AF[, 1],
+            VAF = VariantAnnotation::info(sample_vcf)$VAF,
 
             # Annotations.
             Consequence = gsub("&.*", "", VariantAnnotation::info(sample_vcf)$Consequence),
@@ -124,7 +160,7 @@ import_vcf <- function(x) {
         )
 
         GenomeInfoDb::genome(sample_vranges) <- "mm39"
-
+        
         # Determine mutational type.
         sample_vranges$mutType <- "Other"
         sample_vranges$mutType <- ifelse(VariantAnnotation::isSNV(sample_vranges), "SNV", sample_vranges$mutType)
@@ -136,18 +172,15 @@ import_vcf <- function(x) {
         sample_vranges$mutType <- base::factor(sample_vranges$mutType)
         sample_vranges$BIOTYPE <- base::factor(sample_vranges$BIOTYPE)
 
-        # Add sample name.
-        sample_vranges$sample <- base::basename(path_vcf) %>% stringr::str_remove("_withStrainCounts\\.vcf\\.gz$")
-
         # Determine allelic origin of mutant allele.
-        sample_vranges$origin_mutant <- determine_origin_mutual(sample_vranges$G1_Alt, sample_vranges$G2_Alt)
+        sample_vranges$origin_mutant <- determine_origin_mutual(sample_vranges$H1_Alt, sample_vranges$H2_Alt)
 
         # Return clean-up VRanges.
         return(sample_vranges)
     })
 
     # Convert to VRangesList. ----
-    base::names(data_somaticvariants) <- base::vapply(data_somaticvariants, function(x) unique(x$sample), "")
+    base::names(data_somaticvariants) <- base::vapply(data_somaticvariants, function(x) levels(Biobase::sampleNames(x)), "")
     data_somaticvariants <- VariantAnnotation::VRangesList(data_somaticvariants)
 
     return(data_somaticvariants)

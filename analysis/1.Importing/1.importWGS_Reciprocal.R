@@ -8,13 +8,13 @@ library(future)
 library(LesionSegR)
 
 # Parallel settings.
-future::plan(future::multicore, workers = 10)
+future::plan(future::multisession, workers = 10)
 
 # Import metadata. ----
 
 metadata <- readxl::read_xlsx(
-    path = "~/Dropbox/Work/DKFZ/Projects/Odom - LesionSegregation/Draft/Tables/SupplTable1_OverviewSequencing.xlsx",
-    sheet = "WGS_Reciprocals", trim_ws = TRUE
+    path = "~/odomLab/LesionSegregration_F1/manuscript/tables/SupplTable1_OverviewSequencing.xlsx",
+    sheet = "WGS (NovaSeq)", trim_ws = TRUE
 ) %>%
     # Only keep the malignant samples.
     dplyr::filter(!is.na(matched_group))
@@ -22,7 +22,7 @@ metadata <- readxl::read_xlsx(
 # Import somatic variants and CNV. ----
 
 ## Import somatic variants. ----
-files_vcf <- base::list.files(path = "~/Downloads/VCF", pattern = base::paste(base::paste0(metadata$sample, "_withStrainCounts.vcf.gz$"), collapse = "|"), full.names = TRUE)
+files_vcf <- base::list.files(path = "~/odomLab/LesionSegregration_F1/testRun/variants/", pattern = base::paste(base::paste0(metadata$sample, ".*_haplocounted.vcf.gz$"), collapse = "|"), full.names = TRUE)
 data_somaticvariants <- LesionSegR::import_vcf(files_vcf)
 
 
@@ -32,13 +32,8 @@ reciprocal_results <- list()
 
 ## Flagstats. ----
 
-files_flagstats <- list.files(path = "~/DKFZ/odomLab/LesionSegregration_F1/results/alignment/C57BL_6J_CAST_EiJ/WGS/", pattern = "*.flagstats$", full.names = TRUE)
+files_flagstats <- list.files(path = "~/odomLab/LesionSegregration_F1/testRun/qc/", pattern = "*.flagstats$", full.names = TRUE)
 reciprocal_results$flagstats <- LesionSegR::read_flagstats(files_flagstats)
-
-## SNPSplit. ----
-
-files_snpsplit <- list.files(path = "~/DKFZ/odomLab/LesionSegregration_F1/results/alignment/C57BL_6J_CAST_EiJ/WGS/", pattern = "*.SNPsplit_report.yaml$", full.names = TRUE)
-reciprocal_results$snpsplit <- LesionSegR::read_snpsplit_yaml(files_snpsplit)
 
 ## Determine mutational burden. ----
 reciprocal_results$mutationalBurden <- LesionSegR::determine_mutational_burden(data_somaticvariants)

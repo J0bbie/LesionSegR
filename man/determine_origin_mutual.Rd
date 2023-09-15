@@ -2,20 +2,20 @@
 % Please edit documentation in R/functions_determining_strain.R
 \name{determine_origin_mutual}
 \alias{determine_origin_mutual}
-\title{Determine origin based on mutual exclusivity of G1 / G2 mutant reads.}
+\title{Determine origin based on mutual exclusivity of H1 / H2 mutant reads.}
 \usage{
 determine_origin_mutual(count_strain1, count_strain2)
 }
 \arguments{
-\item{count_strain1}{(numeric): G1 counts of variants.}
+\item{count_strain1}{(numeric): H1 counts of variants.}
 
-\item{count_strain2}{(numeric): G2 counts of variants.}
+\item{count_strain2}{(numeric): H2 counts of variants.}
 }
 \value{
-(character): Vector of G1, G2, or UA status.
+(character): Vector of H1, H2, or UA status.
 }
 \description{
-Annotate strain of variants based on mutual presence of G1 or G2 reads.
+Annotate strain of variants based on mutual presence of H1 or H2 reads.
 }
 \examples{
 1 + 1
