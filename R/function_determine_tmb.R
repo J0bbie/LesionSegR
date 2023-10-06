@@ -12,10 +12,10 @@ determine_mutational_burden <- function(x) {
             TMB = length(y) / (2649938115 / 1E6),
             totalMutations = length(y),
             totalMutationsCoding = length(y[y$HGVSp != "", ]),
-            totalG1 = sum(y$origin_mutant == "G1"),
-            totalG2 = sum(y$origin_mutant == "G2"),
+            totalH1 = sum(y$origin_mutant == "H1"),
+            totalH2 = sum(y$origin_mutant == "H2"),
             totalUA = sum(y$origin_mutant == "UA"),
-            sample = unique(y$sample)
+            sample = unique(Biobase::sampleNames(y))
         )
     }))
 }

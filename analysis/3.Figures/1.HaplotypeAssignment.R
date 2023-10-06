@@ -9,85 +9,82 @@ library(extrafont)
 
 # Import functions. ----
 
-source("R/functions.R")
-source("R/themes.R")
+source("analysis/functions.R")
+source("analysis/themes.R")
 
 
 # Import data. ----
 
-reciprocal_results <- base::readRDS("data/reciprocal_results.rds")
-reciprocal_data <- base::readRDS("data/reciprocal_somaticvariants.rds")
+data_somaticvariants <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_somaticvariants.rds")
+data_results <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_results.rds")
 
 
 # Import metadata. ----
 
 metadata <- readxl::read_xlsx(
-    path = "~/Dropbox/Work/DKFZ/Projects/Odom - LesionSegregation/Draft/Tables/SupplTable1_OverviewSequencing.xlsx",
-    sheet = "WGS_Reciprocals", trim_ws = TRUE
-)
+    path = "~/odomLab/LesionSegregration_F1/manuscript/tables/SupplTable1_OverviewSequencing.xlsx",
+    sheet = "WGS (NovaSeq)", trim_ws = TRUE
+) %>%
+    # Only keep the malignant samples.
+    dplyr::filter(!is.na(matched_group)) %>% 
+    dplyr::mutate(
+        ASID = sample, 
+        sample = sprintf('%s_%s_%s', sample, strain1, strain2)
+    )
 
 
 ## QC - SNPsplit ----
 
-reciprocal_results$snpsplit %>%
-    dplyr::inner_join(metadata) %>%
-    dplyr::left_join(reciprocal_results$mutationalBurden) %>%
-    dplyr::left_join(reciprocal_results$flagstats) %>%
+metadata %>%
+    dplyr::inner_join(data_results$mutationalBurden) %>%
+    dplyr::inner_join(data_results$flagstats, by = c("ASID" = "sample")) %>%
     dplyr::mutate(
-        PercReadsWithN = formattable::percent((.$N_containing_reads / .$total_reads), digits = 2),
-        percent_g1 = formattable::percent(percent_g1 / 100, digits = 2),
-        percent_g2 = formattable::percent(percent_g2 / 100, digits = 2),
-        percent_unassignable = formattable::percent(percent_unassignable / 100, digits = 2),
+        mapped_reads = formattable::percent(Mapped / `Total reads`,2),
+        paired_reads = formattable::percent(`Paired in sequencing` / `Total reads`,2),
+        percent_h1 = formattable::percent(totalH1 / totalMutations, digits = 2),
+        percent_h2 = formattable::percent(totalH2 / totalMutations, digits = 2),
+        percent_unassignable = formattable::percent(totalUA / totalMutations, digits = 2),
         TMB = formattable::color_tile("grey90", max.color = "red")(round(TMB, 2)),
-        total_reads = formattable::color_tile("lightpink", max.color = "hotpink")(base::formatC(.$total_reads, drop0trailing = TRUE, big.mark = ",")),
-        properPairPerc = formattable::percent(`properly paired` / `paired in sequencing`, digits = 2)
+        total_reads = formattable::color_tile("lightpink", max.color = "hotpink")(base::formatC(.$`Total reads`, drop0trailing = TRUE, big.mark = ","))
     ) %>%
     dplyr::select(
-        ASID = sample,
+        ASID,
+        "Strain (H1)" = strain1,
+        "Strain (H2)" = strain2,
         Descr. = sample_name,
         "Total reads" = total_reads,
-        "Mapped" = mapped,
-        "Paired" = `paired in sequencing`,
-        "Properly Paired (%)" = properPairPerc,
-        "N-reads" = PercReadsWithN,
-        "B6" = percent_g1,
-        "CAST-EiJ" = percent_g2,
-        "UA" = percent_unassignable,
+        "Mapped" = mapped_reads,
+        "Paired" = paired_reads,
         TMB,
         "Total" = totalMutations,
-        "B6 " = totalG1,
-        "CAST-EiJ " = totalG2,
-        "UA " = totalUA,
+        "H1" = percent_h1,
+        "H2" = percent_h2,
+        "UA" = percent_unassignable,
     ) %>%
     dplyr::arrange(-Total) %>%
-    knitr::kable(escape = FALSE, align = "llcccccccccc", format.args = list(decimal.mark = ".", big.mark = ",")) %>%
+    knitr::kable(escape = FALSE, align = "lcclcccccccc", format.args = list(decimal.mark = ".", big.mark = ",")) %>%
     kableExtra::kable_styling(font_size = 15, full_width = TRUE, html_font = "Lexend", bootstrap_options = c("striped")) %>%
-    kableExtra::add_header_above(line_sep = 10, c(" " = 3, "Flagstats" = 3, "SNPSplit (% reads)" = 4, "Somatic variants (no.)" = 5))
+    kableExtra::add_header_above(line_sep = 10, c(" " = 4, "Flagstats" = 3, "Somatic variants (no.)" = 5))
 
 
 # QC - Visualize the distribution of strain-assigned somatic variants. ----
 
 dplyr::bind_rows(
-    base::lapply(reciprocal_data, function(x) tibble::as_tibble(S4Vectors::mcols(x)[c("sample", "G1_Alt", "G2_Alt", "origin_mutant")]))
+    base::lapply(data_somaticvariants, function(x) tibble::as_tibble(data.frame(sample = Biobase::sampleNames(x), S4Vectors::mcols(x)[c("H1_Alt", "H2_Alt", "origin_mutant")])))
 ) %>%
     dplyr::inner_join(metadata) %>%
     dplyr::mutate(
-        delta = G1_Alt - G2_Alt,
-        assignment = dplyr::case_when(
-            origin_mutant == "G1" ~ "B6",
-            origin_mutant == "G2" ~ "CAST",
-            origin_mutant == "UA" ~ "Unassigned"
-        )
+        delta = H1_Alt - H2_Alt,
     ) %>%
     dplyr::filter(delta != 0) %>%
     # Plot distribution.
-    ggplot2::ggplot(., ggplot2::aes(x = delta, fill = assignment)) +
+    ggplot2::ggplot(., ggplot2::aes(x = delta, fill = origin_mutant)) +
     ggplot2::geom_histogram(binwidth = .5, na.rm = TRUE, color = "grey10", lwd = ggplot2::rel(.33)) +
     ggplot2::scale_y_continuous(expand = c(0, 0), limits = c(0, 4100)) +
     ggplot2::scale_x_continuous(limits = c(-25, 25), breaks = seq(-25, 25, 5)) +
     ggplot2::scale_fill_manual(values = color_scheme, name = NULL) +
     ggplot2::labs(
-        x = "B6 - CAST SNP-assigned reads",
+        x = "H1 - H2 assigned reads",
         y = "Frequency<br><sup>(No. of somatic variants)</sup>"
     ) +
     ggplot2::facet_wrap(~ sample_name, ncol = 3) +

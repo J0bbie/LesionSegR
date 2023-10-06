@@ -10,25 +10,25 @@
 #' @export
 import_vcf <- function(x) {
     # Input validation ---
-
+    
     checkmate::assertFile(x)
-
+    
     # Import and clean-up VCF. ---
     data_somaticvariants <- future.apply::future_lapply(x, function(path_vcf) {
         futile.logger::flog.info(glue::glue("Importing VCF: {path_vcf}"))
-
+        
         # Read in the VCF file.
         sample_vcf <- VariantAnnotation::readVcf(path_vcf, genome = "GRCm39", param = VariantAnnotation::ScanVcfParam(samples = 'TUMOR'))
-
+        
         # Expand multi-allelic hits to separate rows.
         sample_vcf <- VariantAnnotation::expand(sample_vcf)
-
+        
         # Filter VCF for PASS-only.
         filter_pass <- base::length(sample_vcf)
         sample_vcf <- sample_vcf[sample_vcf@fixed$FILTER == "PASS", ]
-
+        
         futile.logger::flog.info(glue::glue("Filtering PASS-only: retaining {base::length(sample_vcf)} of {filter_pass} somatic variants."))
-
+        
         # Filter on DP.
         filter_dp <- base::length(sample_vcf)
         sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$DP[, 1] >= 10, ]
@@ -36,7 +36,7 @@ import_vcf <- function(x) {
         futile.logger::flog.info(glue::glue("Filtering on DP >= 10: retaining {base::length(sample_vcf)} of {filter_dp} somatic variants."))
         
         # Calculate AD and VAF
-        ad_info <- base::lapply(seq_along(sample_vcf), function(i){
+        ad_info <- pbapply::pblapply(seq_along(sample_vcf), function(i){
             row = sample_vcf[i]
             
             if(VariantAnnotation::isSNV(row)){
@@ -63,8 +63,8 @@ import_vcf <- function(x) {
             
             return(tibble::tibble(i, ref_count, alt_count, vaf))
             
-        })
-            
+        }, cl = 5)
+        
         ad_info <- dplyr::bind_rows(ad_info)
         
         VariantAnnotation::info(sample_vcf)$VAF <- ad_info$vaf
@@ -86,44 +86,44 @@ import_vcf <- function(x) {
         # Clean-up VEP annotations. ----
         futile.logger::flog.info("Converting and cleaning annotations")
         if (is.null(VariantAnnotation::info(sample_vcf)$CSQ)) stop(sprintf("This file does not contain a CSQ (annotation / VEP) column:\t{path_vcf}"))
-
+        
         # Convert annotation to tibble.
         split_csq <- tibble::as_tibble(unlist(VariantAnnotation::info(sample_vcf)$CSQ)) %>%
             tidyr::separate("value",
-                into =
-                    c(
-                        "Allele",
-                        "Consequence",
-                        "IMPACT",
-                        "SYMBOL",
-                        "Gene",
-                        "Feature_type",
-                        "Feature",
-                        "BIOTYPE",
-                        "EXON",
-                        "INTRON",
-                        "HGVSc",
-                        "HGVSp",
-                        "cDNA_position",
-                        "CDS_position",
-                        "Protein_position",
-                        "Amino_acids",
-                        "Codons",
-                        "Existing_variation",
-                        "DISTANCE",
-                        "STRAND",
-                        "FLAGS",
-                        "SYMBOL_SOURCE",
-                        "HGNC_ID",
-                        "TSL",
-                        "HGVS_OFFSET"
-                    ),
-                sep = "\\|"
+                            into =
+                                c(
+                                    "Allele",
+                                    "Consequence",
+                                    "IMPACT",
+                                    "SYMBOL",
+                                    "Gene",
+                                    "Feature_type",
+                                    "Feature",
+                                    "BIOTYPE",
+                                    "EXON",
+                                    "INTRON",
+                                    "HGVSc",
+                                    "HGVSp",
+                                    "cDNA_position",
+                                    "CDS_position",
+                                    "Protein_position",
+                                    "Amino_acids",
+                                    "Codons",
+                                    "Existing_variation",
+                                    "DISTANCE",
+                                    "STRAND",
+                                    "FLAGS",
+                                    "SYMBOL_SOURCE",
+                                    "HGNC_ID",
+                                    "TSL",
+                                    "HGVS_OFFSET"
+                                ),
+                            sep = "\\|"
             )
-
+        
         # Add the split columns to the VCF.
         VariantAnnotation::info(sample_vcf) <- base::suppressWarnings(S4Vectors::cbind(VariantAnnotation::info(sample_vcf), split_csq))
-
+        
         # Generate a VRanges containing all relevant information from the sample_vcf.
         sample_vranges <- VariantAnnotation::VRanges(
             seqname = GenomicRanges::seqnames(sample_vcf),
@@ -134,7 +134,7 @@ import_vcf <- function(x) {
             altDepth = VariantAnnotation::info(sample_vcf)$alt_count,
             totalDepth = VariantAnnotation::geno(sample_vcf)$DP[, 1],
             sampleNames = base::gsub("_VEP_haplocounted.vcf.gz", "", basename(path_vcf)),
-
+            
             # Strain-specific counts.
             UA_Ref = VariantAnnotation::geno(sample_vcf)$UA[, , 1],
             H1_Ref = VariantAnnotation::geno(sample_vcf)$H1[, , 1],
@@ -142,10 +142,10 @@ import_vcf <- function(x) {
             UA_Alt = VariantAnnotation::geno(sample_vcf)$UA[, , 2],
             H1_Alt = VariantAnnotation::geno(sample_vcf)$H1[, , 2],
             H2_Alt = VariantAnnotation::geno(sample_vcf)$H2[, , 2],
-
+            
             # Scores.
             VAF = VariantAnnotation::info(sample_vcf)$VAF,
-
+            
             # Annotations.
             Consequence = gsub("&.*", "", VariantAnnotation::info(sample_vcf)$Consequence),
             ConsequenceAll = VariantAnnotation::info(sample_vcf)$Consequence,
@@ -158,7 +158,7 @@ import_vcf <- function(x) {
             HGVSp = VariantAnnotation::info(sample_vcf)$HGVSp,
             IMPACT = VariantAnnotation::info(sample_vcf)$IMPACT
         )
-
+        
         GenomeInfoDb::genome(sample_vranges) <- "mm39"
         
         # Determine mutational type.
@@ -167,21 +167,21 @@ import_vcf <- function(x) {
         sample_vranges$mutType <- ifelse(VariantAnnotation::isIndel(sample_vranges), "InDel", sample_vranges$mutType)
         sample_vranges$mutType <- ifelse(!VariantAnnotation::isSNV(sample_vranges) & VariantAnnotation::isSubstitution(sample_vranges), "MNV", sample_vranges$mutType)
         sample_vranges$mutType <- ifelse(VariantAnnotation::isDelins(sample_vranges), "DelIn", sample_vranges$mutType)
-
+        
         # Convert several columns to factor to save size.
         sample_vranges$mutType <- base::factor(sample_vranges$mutType)
         sample_vranges$BIOTYPE <- base::factor(sample_vranges$BIOTYPE)
-
+        
         # Determine allelic origin of mutant allele.
         sample_vranges$origin_mutant <- determine_origin_mutual(sample_vranges$H1_Alt, sample_vranges$H2_Alt)
-
+        
         # Return clean-up VRanges.
         return(sample_vranges)
     })
-
+    
     # Convert to VRangesList. ----
     base::names(data_somaticvariants) <- base::vapply(data_somaticvariants, function(x) levels(Biobase::sampleNames(x)), "")
     data_somaticvariants <- VariantAnnotation::VRangesList(data_somaticvariants)
-
+    
     return(data_somaticvariants)
 }

@@ -11,7 +11,7 @@ generate_mutmatrices_96 <- function(x) {
 
     # Sub function - Convert mutations to correct GRanges for input into MutationalPatterns. ----
     convert_muts <- function(x, dbs = FALSE) {
-        S4Vectors::mcols(x) <- S4Vectors::DataFrame(sample = x$sample)
+        S4Vectors::mcols(x) <- S4Vectors::DataFrame(sample = Biobase::sampleNames(x))
 
         # Add REF and ALT as column.
         if (dbs) {
@@ -45,12 +45,6 @@ generate_mutmatrices_96 <- function(x) {
         convert_muts() %>%
         MutationalPatterns::get_indel_context(., ref_genome = "BSgenome.Mmusculus.UCSC.mm39") %>%
         MutationalPatterns::count_indel_contexts(.)
-
-    ## DBS. ----
-    data_mutmatrices$dbs <- x[x$mutType == "MNV" & base::nchar(VariantAnnotation::ref(x)) == 2 & base::nchar(VariantAnnotation::alt(x)) == 2] %>%
-        convert_muts(., dbs = TRUE) %>%
-        MutationalPatterns::get_dbs_context(.) %>%
-        MutationalPatterns::count_dbs_contexts(.)
 
     # Return.
     return(data_mutmatrices)

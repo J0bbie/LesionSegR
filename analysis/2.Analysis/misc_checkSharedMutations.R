@@ -4,18 +4,16 @@
 # Libraries ----
 
 library(dplyr)
-library(ParallelLogger)
 library(patchwork)
 
 # Import functions. ----
 
-source("R/functions.R")
-source("R/themes.R")
+source("analysis/functions.R")
+source("analysis/themes.R")
 
 # Import somatic variants. ----
 
-reciprocal_data <- base::readRDS("data/reciprocal_somaticvariants.rds")
-reciprocal_results <- base::readRDS("data/reciprocal_results.rds")
+data_somaticvariants <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_somaticvariants.rds")
 
 
 ## Report potential cross-specific artifacts. ----
@@ -28,7 +26,7 @@ recurrent_mutations <- dplyr::bind_rows(base::lapply(data_somaticvariants, funct
             end = GenomicRanges::end(x),
             ref = VariantAnnotation::ref(x),
             alt = VariantAnnotation::alt(x),
-            sample = unique(x$sample)
+            sample = Biobase::sampleNames(x)
         )
     )
 })) %>%
@@ -36,8 +34,9 @@ recurrent_mutations <- dplyr::bind_rows(base::lapply(data_somaticvariants, funct
     dplyr::group_by(chr, start, end, ref, alt) %>%
     dplyr::summarise(
         countSamples = dplyr::n_distinct(sample),
-        totalCasB6 = sum(group == "Tumor (Liver; Reciprocal CAS/B6)"),
-        totalB6Cas = sum(group == "Tumor (Liver; Reciprocal B6/CAS)")
+        totalCASTC3H = sum(group == 'Tumor (Liver; CAST/C3H)'),
+        totalCasB6 = sum(group == "Tumor (Liver; Reciprocal CAST/B6)"),
+        totalB6Cas = sum(group == "Tumor (Liver; Reciprocal B6/CAST)")
     ) %>%
     dplyr::ungroup()
 
@@ -45,7 +44,7 @@ recurrent_mutations <- dplyr::bind_rows(base::lapply(data_somaticvariants, funct
 # Plot no. of shared cross-specific mutations. ----
 
 recurrent_mutations %>%
-    dplyr::group_by(totalCasB6, totalB6Cas) %>%
+    dplyr::group_by(totalCasB6, totalB6Cas, totalCASTC3H) %>%
     dplyr::summarise(count = dplyr::n()) %>%
     dplyr::ungroup() %>%
     tidyr::complete(totalCasB6, totalB6Cas, fill = list(count = 0)) %>%
@@ -59,7 +58,6 @@ recurrent_mutations %>%
         x = "No. of shared somatic mutations<br>CAS/B6",
         y = "No. of shared somatic mutations<br>B6/CAS",
     ) +
-    theme_job +
     ggplot2::theme(
         legend.position = "none"
     )

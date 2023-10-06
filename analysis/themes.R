@@ -1,7 +1,7 @@
 color_scheme <- c(
     "UA" = "grey90",
-    "G1" = "#566EE7",
-    "G2" = "#EA8686",
+    "H1" = "#566EE7",
+    "H2" = "#EA8686",
     "Unassigned" = "grey90",
     "B6" = "#39B185",
     "CAST" = "#F7007C",

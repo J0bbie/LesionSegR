@@ -6,21 +6,23 @@ library(dplyr)
 # Create symlinks. ----
 
 ## WGS ----
-x <- readxl::read_xlsx('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/metadata/SupplTable1_OverviewSequencing.xlsx', sheet = 'WGS')
+x <- readxl::read_xlsx('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/manuscript/tables/SupplTable1_OverviewSequencing.xlsx', sheet = 'WGS (NovaSeq)')
 files <- tibble::tibble(f = list.files('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/sequencingRuns/', recursive = T, pattern = 'fastq.gz$', full.names = T)) %>% 
     dplyr::mutate(ASID = gsub('-LR.*', '', basename(f))) %>% 
-    dplyr::inner_join(x) %>% 
-    dplyr::mutate(CMD = sprintf('ln -s %s /omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/WGS/reads/untrimmed/', f))
+    dplyr::inner_join(x, by = c('ASID' = 'sample')) %>% 
+    dplyr::mutate(CMD = sprintf('ln -s %s /omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/rawreads/WGS/', f))
 
 write.table(files$CMD, file = '~/test/symlinkWGS.txt', row.names = F, sep = '\t', quote = F, col.names = F)
 
 ## WTS ----
 
-x <- readxl::read_xlsx('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/metadata/SupplTable1_OverviewSequencing.xlsx', sheet = 'WTS')
+x <- readxl::read_xlsx('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/manuscript/tables/SupplTable1_OverviewSequencing.xlsx', sheet = 'WTS (All)') %>% 
+    dplyr::filter(sequencing_platform == "Illumina NextSeq 2000")
+
 files <- tibble::tibble(f = list.files('/omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/sequencingRuns/', recursive = T, pattern = 'fastq.gz$', full.names = T)) %>% 
     dplyr::mutate(ASID = gsub('-LR.*', '', basename(f))) %>% 
-    dplyr::inner_join(x) %>% 
-    dplyr::mutate(CMD = sprintf('ln -s %s /omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/WTS/reads/untrimmed/', f))
+    dplyr::inner_join(x, by = c('ASID' = 'sample')) %>% 
+    dplyr::mutate(CMD = sprintf('ln -s %s /omics/groups/OE0538/internal/projects/LesionSegregration_F1/data/rawreads/WTS/', f))
 
 write.table(files$CMD, file = '~/test/symlinkWTS.txt', row.names = F, sep = '\t', quote = F, col.names = F)
 
