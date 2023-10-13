@@ -32,6 +32,13 @@ metadata <- readxl::read_xlsx(
         sample = sprintf('%s_%s_%s', sample, strain1, strain2)
     )
 
+## QC - Haplotag ----
+
+data_results$haplotag %>% 
+    dplyr::mutate(cross = dplyr::if_else(grepl('C3H', sample), 'CASTxC3H', 'B6xCAST')) %>% 
+    ggplot2::ggplot(., aes(x = chrom, y = total_tagged_reads, fill = cross)) +
+    geom_boxplot(outlier.shape = NULL) +
+    geom_point(position = ggbeeswarm::position_beeswarm(dodge.width = .6), shape = 21)
 
 ## QC - SNPsplit ----
 

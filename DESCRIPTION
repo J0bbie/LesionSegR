@@ -13,6 +13,7 @@ BugReports: https://github.com/J0bbie/LesionSegR/issues/
 Depends:
     R (>= 4.2)
 Imports:
+    Biobase,
     Biostrings,
     checkmate (>= 2.2.0),
     dndscv,
@@ -24,14 +25,14 @@ Imports:
     glue,
     IRanges,
     MutationalPatterns,
+    pbapply,
     readr,
     reshape2,
     S4Vectors,
     stringr,
     tibble,
     tidyr,
-    VariantAnnotation,
-    yaml
+    VariantAnnotation
 Remotes: 
     bioc::3.16/Biostrings,
     bioc::3.16/GenomeInfoDb,

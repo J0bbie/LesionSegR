@@ -5,8 +5,10 @@
 #' @importFrom dplyr %>%
 #' @export
 read_haplotag_log <- function(x){
+    # Check input.
+    checkmate::assertFile(x)
     
-    x = list.files('/home/j103t/odomLab/LesionSegregration_F1/data/workflow/logs/haplotyping/', pattern = '.log', full.names = T)
+    futile.logger::flog.info(glue::glue("Importing {length(x)} haplotag log files."))
     
     data_haplotag <- tibble::as_tibble(dplyr::bind_rows(future.apply::future_lapply(x, function(sample_path) {
         data <- readr::read_tsv(sample_path, col_names = 'row', col_types = 'c') %>% 
@@ -19,11 +21,13 @@ read_haplotag_log <- function(x){
         
         data$chrom <- paste0('chr', c(1:19, 'X', 'Y', 'M'))
         
-        data <- data %>% dplyr::distinct(chrom, total_tagged_reads, total_tagged_variants, sample)
+        data <- data %>% 
+            dplyr::distinct(chrom, total_tagged_reads, total_tagged_variants, sample)
         
         return(data)
         
-    })))
+    }))) %>% 
+        dplyr::mutate(chrom = factor(chrom, levels = paste0('chr', c(1:19, 'X', 'Y', 'M'))))
     
     return(data_haplotag)
 }

@@ -21,7 +21,7 @@
 #'         "strand" = Strand
 #'     ) %>%
 #' dplyr::mutate(chr = paste0("chr", chr))
-#' write.table(ENSEMBLv110_GRCm39, file = "~/test/mart_export_filtered.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+#' write.table(ENSEMBLv110_GRCm39, file = "~/test/mart_export_filtered.txt", row.names = FALSE, quote = FALSE)
 #' pathCDS = '~/test/mart_export_filtered.txt'
 #' pathFasta = '/omics/groups/OE0538/internal/projects/sharedData/GRCm39/genome/GRCm39.primary_assembly.genome.fa'
 #' dndscv::buildref(cdsfile = pathCDS, genomefile = pathFasta, outfile = '~/test/refCDS_ENSEMBLv109_GRCm39.rda', excludechrs='chrMT', useids = TRUE)

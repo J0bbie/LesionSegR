@@ -18,7 +18,8 @@ metadata <- readxl::read_xlsx(
     sheet = "WGS (NovaSeq)", trim_ws = TRUE
 ) %>%
     # Only keep the malignant samples.
-    dplyr::filter(!is.na(matched_group))
+    dplyr::filter(!is.na(matched_group)) %>% 
+    dplyr::mutate(sample_strain = paste(sample, strain1, strain2, sep = '_'))
 
 # Import somatic variants and CNV. ----
 
@@ -39,7 +40,8 @@ data_results$flagstats <- LesionSegR::read_flagstats(files_flagstats)
 ## Haplotag ----
 
 files_haplotag<- list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/logs/haplotyping/", pattern = "^haplotag.*log", full.names = TRUE)
-data_results$haplotag <- LesionSegR::read_haplotag_log(files_haplotag)
+data_results$haplotag <- LesionSegR::read_haplotag_log(files_haplotag) %>% 
+    dplyr::filter(sample %in% metadata$sample_strain)
 
 
 ## Determine mutational burden. ----
