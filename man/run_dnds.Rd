@@ -4,7 +4,11 @@
 \alias{run_dnds}
 \title{Perform dN/dS analysis.}
 \usage{
-run_dnds(data_muts, path_db = "~/Downloads/refCDS_ENSEMBLv109_GRCm39.rda")
+run_dnds(
+  data_muts,
+  path_db =
+    "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/refCDS_ENSEMBLv110_GRCm39.rda"
+)
 }
 \arguments{
 \item{data_muts}{(SimpleVRangesList): VRangesList containing the mutations of all samples.}
@@ -20,7 +24,7 @@ Perform dN/dS analysis.
 \details{
 The database can be generated using the following code:
 
-ENSEMBLv109_GRCm39 <- readr::read_tsv("~/Downloads/mart_export.txt") %>%
+ENSEMBLv110_GRCm39 <- readr::read_tsv("/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/GRCm39_dndscv_mart_export.txt") %>%
     dplyr::filter(!grepl("_", `Chromosome/scaffold name`)) %>%
     dplyr::filter(`CDS Length` %% 3 == 0) %>%
     dplyr::filter(!is.na(`Genomic coding start`)) %>%
@@ -39,6 +43,7 @@ ENSEMBLv109_GRCm39 <- readr::read_tsv("~/Downloads/mart_export.txt") %>%
         "strand" = Strand
     ) %>%
 dplyr::mutate(chr = paste0("chr", chr))
+write.table(ENSEMBLv110_GRCm39, file = "~/test/mart_export_filtered.txt", sep = "\t", row.names = FALSE, quote = FALSE)
 pathCDS = '~/test/mart_export_filtered.txt'
 pathFasta = '/omics/groups/OE0538/internal/projects/sharedData/GRCm39/genome/GRCm39.primary_assembly.genome.fa'
 dndscv::buildref(cdsfile = pathCDS, genomefile = pathFasta, outfile = '~/test/refCDS_ENSEMBLv109_GRCm39.rda', excludechrs='chrMT', useids = TRUE)

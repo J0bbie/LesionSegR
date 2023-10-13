@@ -36,6 +36,12 @@ data_results <- list()
 files_flagstats <- list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/alignment/WGS/", pattern = "*.flagstat$", full.names = TRUE)
 data_results$flagstats <- LesionSegR::read_flagstats(files_flagstats)
 
+## Haplotag ----
+
+files_haplotag<- list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/logs/haplotyping/", pattern = "^haplotag.*log", full.names = TRUE)
+data_results$haplotag <- LesionSegR::read_haplotag_log(files_haplotag)
+
+
 ## Determine mutational burden. ----
 data_results$mutationalBurden <- LesionSegR::determine_mutational_burden(data_somaticvariants)
 
