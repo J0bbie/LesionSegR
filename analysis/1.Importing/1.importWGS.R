@@ -9,7 +9,7 @@ library(LesionSegR)
 library(VariantAnnotation)
 
 # Parallel settings.
-future::plan(future::multicore, workers = 10)
+future::plan(future::multisession, workers = 20)
 
 # Import metadata. ----
 

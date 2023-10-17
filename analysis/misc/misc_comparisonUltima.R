@@ -6,7 +6,7 @@ library(VariantAnnotation)
 # Parallel settings.
 future::plan(future::multisession, workers = 10)
 
-# Import metadata of Ultima/Illumuna samples. ----
+# Import metadata of Ultima/Illumina samples. ----
 
 metadata <- readxl::read_xlsx(
     path = "~/odomLab/LesionSegregration_F1/manuscript/tables/SupplTable1_OverviewSequencing.xlsx",
