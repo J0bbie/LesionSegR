@@ -22,10 +22,20 @@ metadata <- readxl::read_xlsx(
 files_vcf <- base::list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/variants/", pattern = base::paste(base::paste0(metadata$sample, ".*_haplocounted.vcf.gz$"), collapse = "|"), full.names = TRUE)
 somatics_illumina <- LesionSegR::import_vcf(files_vcf)
 
+# Subset on chr 10.
+somatics_illumina <- VariantAnnotation::VRangesList(lapply(somatics_illumina, function(x){
+    x[GenomicRanges::seqnames(x) == 'chr10',]
+}))
+
 ## Import somatic variants (Ultima). ----
 files_vcf <- base::list.files(path = "~/odomLab/LesionSegregration_F1/UltimaGenomics/variantCalling/Mutect2_haplotyped/", pattern = ".*_haplocounted.vcf.gz$", full.names = TRUE)
 somatics_ultima <- LesionSegR::import_vcf_mutect(files_vcf)
 
 ## Convert sample_names to similar names.
-IRanges::subsetByOverlaps(somatics_illumina$`AS-949292_B6_CAST_EiJ`, somatics_ultima$CABL1t1)
-somatics_illumina$`AS-949296_B6_CAST_EiJ` somatics_ultima$CABL2t1
+IRanges::subsetByOverlaps(somatics_ultima$CABL1t1, somatics_illumina$`AS-949292_B6_CAST_EiJ`, invert = F)
+IRanges::subsetByOverlaps(somatics_ultima$CABL2t1, somatics_illumina$`AS-949296_B6_CAST_EiJ`, invert = F)
+IRanges::subsetByOverlaps(somatics_ultima$CABL3t1, somatics_illumina$`AS-949300_B6_CAST_EiJ`, invert = F)
+
+# Classify Ultima-specific alterations. ----
+
+

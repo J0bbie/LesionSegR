@@ -6,11 +6,10 @@ color_scheme <- c(
     "B6" = "#39B185",
     "CAST" = "#F7007C",
     "C3H" = "#566EE7",
-    "C3HxCAST" = "#566EE7",
 
-    "Tumor (Liver; CAST/C3H)" = "#F7007C",
-    "Tumor (Liver; Reciprocal B6/CAST)" = "#7382D3",
-    "Tumor (Liver; Reciprocal CAST/B6)" = "#D75430"
+    "CAST/C3H" = "#F7007C",
+    "B6/CAST" = "#7382D3",
+    "CAST/B6" = "#D75430"
 )
 
 theme_job <- ggplot2::theme(
