@@ -43,9 +43,9 @@ import_vcf_mutect <- function(x) {
         
         # Filter on VAF.
         filter_vaf <- base::length(sample_vcf)
-        sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$AF[,2] >= 0.025, ]
+        sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$AF[,2] >= 0.1, ]
         
-        futile.logger::flog.info(glue::glue("Filtering on VAF >= 0.025: retaining {base::length(sample_vcf)} of {filter_vaf} somatic variants."))
+        futile.logger::flog.info(glue::glue("Filtering on VAF >= 0.1: retaining {base::length(sample_vcf)} of {filter_vaf} somatic variants."))
         
         # Generate a VRanges containing all relevant information from the sample_vcf.
         sample_vranges <- VariantAnnotation::VRanges(
