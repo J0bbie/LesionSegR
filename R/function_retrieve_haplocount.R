@@ -52,9 +52,9 @@ retrieve_haplocount <- function(granges, path_bam) {
     
     # Add the id column.
     count_bam$id <- granges[BiocGenerics::match(count_bam$which_label, granges$which_label)]$id
-    count_bam$seqnames <- GenomicRanges::seqnames(granges[match(count_bam$which_label, granges$which_label)])
-    count_bam$start <- GenomicRanges::start(granges[match(count_bam$which_label, granges$which_label)])
-    count_bam$end <- GenomicRanges::end(granges[match(count_bam$which_label, granges$which_label)])
+    count_bam$seqnames <- GenomicRanges::seqnames(granges[BiocGenerics::match(count_bam$which_label, granges$which_label)])
+    count_bam$start <- GenomicRanges::start(granges[BiocGenerics::match(count_bam$which_label, granges$which_label)])
+    count_bam$end <- GenomicRanges::end(granges[BiocGenerics::match(count_bam$which_label, granges$which_label)])
     
     # Convert to tibble.
     count_bam <- tibble::as_tibble(count_bam) %>% 
