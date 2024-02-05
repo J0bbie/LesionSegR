@@ -21,13 +21,16 @@ Imports:
     futile.logger (>= 1.4.3),
     future.apply,
     GenomeInfoDb,
+    GenomicAlignments,
     GenomicRanges,
     glue,
     IRanges,
     MutationalPatterns,
     pbapply,
+    plyranges,
     readr,
     reshape2,
+    Rsamtools,
     S4Vectors,
     stringr,
     tibble,
@@ -41,4 +44,4 @@ Remotes:
     bioc::3.16/S4Vectors
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
