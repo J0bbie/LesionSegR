@@ -16,7 +16,7 @@ read_haplotag_log <- function(x){
             dplyr::mutate(
                 total_tagged_reads = as.integer(base::gsub(' reads.*', '', base::gsub('Found ', '', row))),
                 total_tagged_variants = as.integer(base::gsub(' variants', '',base::gsub('.*covering ', '', row))),
-                sample = factor(base::gsub('\\.log', '', base::gsub('haplotag_WGS_', '', base::basename(sample_path))))
+                sample = factor(base::gsub('_.*', '', gsub('haplotag_W.S_', '',base::basename(sample_path)))),
             )
         
         data$chrom <- paste0('chr', c(1:19, 'X', 'Y', 'M'))

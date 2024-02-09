@@ -25,7 +25,7 @@
 #' pathCDS = '~/test/mart_export_filtered.txt'
 #' pathFasta = '/omics/groups/OE0538/internal/projects/sharedData/GRCm39/genome/GRCm39.primary_assembly.genome.fa'
 #' dndscv::buildref(cdsfile = pathCDS, genomefile = pathFasta, outfile = '~/test/refCDS_ENSEMBLv109_GRCm39.rda', excludechrs='chrMT', useids = TRUE)
-#' @param data_muts (SimpleVRangesList): VRangesList containing the mutations of all samples.
+#' @param data_muts (tibble): tibble containing the mutations of all samples.
 #' @param path_db (character): Path to the dN/dS database.
 #' @return (list): Tibble with
 #' @importFrom dplyr %>%
@@ -33,21 +33,19 @@
 run_dnds <- function(data_muts, path_db = "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/refCDS_ENSEMBLv110_GRCm39.rda") {
     # Input validation --------------------------------------------------------
 
-    checkmate::assertClass(data_muts, classes = "SimpleVRangesList")
+    checkmate::assertTibble(data_muts)
 
-    futile.logger::flog.info(glue::glue("Performing dN/dS analysis on {base::length(data_muts$sample)} unique samples.\nThis can take some minutes."))
+    futile.logger::flog.info(glue::glue("Performing dN/dS analysis on {dplyr::n_distinct(data_muts$sample)} unique samples.\nThis can take some minutes."))
 
     # Perform dN/dS -----------------------------------------------------------
 
-    data_muts <- base::unlist(data_muts)
-
     # Convert mutations to data.frame and remove chr prefix.
     data_muts_df <- data.frame(
-        sampleID = Biobase::sampleNames(data_muts),
-        chr = as.character(GenomeInfoDb::seqnames(data_muts)),
-        pos = as.numeric(IRanges::start(data_muts)),
-        ref = VariantAnnotation::ref(data_muts),
-        mut = VariantAnnotation::alt(data_muts)
+        sampleID = data_muts$sample,
+        chr = data_muts$seqnames,
+        pos = as.integer(data_muts$start),
+        ref = data_muts$ref,
+        mut = data_muts$alt
     )
 
     # Perform dN/dS algorithm.

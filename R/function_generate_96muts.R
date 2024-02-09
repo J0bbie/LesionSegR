@@ -1,51 +1,47 @@
 #' @title Generate 96-context matrix of somatic variants.
-#' @param x (SimpleVRangesList): VRangesList containing the mutations of all samples.
-#' @return (list): List of 96-context matrices (SBS, InDel, DBS).
+#' @param x (VRanges): VRanges containing the mutations of the samples.
+#' @return (list): List of 96-context tibbles (SBS and InDel).
 #' @importFrom dplyr %>%
 #' @export
 generate_mutmatrices_96 <- function(x) {
+    
     # Check input. ----
-
-    checkmate::checkClass(x, "SimpleVRangesList")
-
-
+    
+    checkmate::checkTibble(x)
+    
     # Sub function - Convert mutations to correct GRanges for input into MutationalPatterns. ----
-    convert_muts <- function(x, dbs = FALSE) {
-        S4Vectors::mcols(x) <- S4Vectors::DataFrame(sample = Biobase::sampleNames(x))
-
-        # Add REF and ALT as column.
-        if (dbs) {
-            x$REF <- Biostrings::DNAStringSet(VariantAnnotation::ref(x))
-            x$ALT <- Biostrings::DNAStringSetList(base::lapply(VariantAnnotation::alt(x), Biostrings::DNAStringSet))
-        } else {
-            x$REF <- VariantAnnotation::ref(x)
-            x$ALT <- VariantAnnotation::alt(x)
-        }
-
-        # Convert to GRangeslist, split per sample.
-        x <- GenomicRanges::GRanges(x)
-        x <- GenomicRanges::GRangesList(base::split(x, x$sample))
-
-        GenomeInfoDb::genome(x) <- "mm39"
-
+    convert_muts <- function(x) {
+        xx <- GenomicRanges::makeGRangesFromDataFrame(x, keep.extra.columns = T)
+        xx$REF <- xx$ref
+        xx$ALT <- xx$alt
+        
+        GenomeInfoDb::genome(xx) <- "mm39"
+        
         # Return.
-        return(x)
+        return(xx)
     }
-
+    
     data_mutmatrices <- list()
-    x <- base::unlist(x)
-
+    
     ## SBS. ---
-    data_mutmatrices$sbs <- x[x$mutType == "SNV", ] %>%
+    data_mutmatrices$sbs <- x %>% dplyr::filter(mutType == 'SNV') %>%
         convert_muts() %>%
         MutationalPatterns::mut_matrix(ref_genome = "BSgenome.Mmusculus.UCSC.mm39")
-
+    
+    colnames(data_mutmatrices$sbs) <- unique(x$sample)
+    data_mutmatrices$sbs <- tibble::as_tibble(data_mutmatrices$sbs, rownames = 'context')
+    
     ## InDel. ---
-    data_mutmatrices$indel <- x[x$mutType == "InDel", ] %>%
-        convert_muts() %>%
-        MutationalPatterns::get_indel_context(., ref_genome = "BSgenome.Mmusculus.UCSC.mm39") %>%
-        MutationalPatterns::count_indel_contexts(.)
-
+    if(nrow(x[x$mutType == "InDel", ]) != 0){
+        data_mutmatrices$indel <- x[x$mutType == "InDel", ] %>%
+            convert_muts() %>%
+            MutationalPatterns::get_indel_context(., ref_genome = "BSgenome.Mmusculus.UCSC.mm39") %>%
+            MutationalPatterns::count_indel_contexts(.)
+        
+        colnames(data_mutmatrices$indel) <- unique(x$sample)
+        data_mutmatrices$indel <- tibble::as_tibble(data_mutmatrices$indel, rownames = 'context')
+    }
+    
     # Return.
     return(data_mutmatrices)
 }

@@ -13,9 +13,9 @@ BugReports: https://github.com/J0bbie/LesionSegR/issues/
 Depends:
     R (>= 4.2)
 Imports:
-    Biobase,
-    Biostrings,
+    BiocGenerics,
     checkmate (>= 2.2.0),
+    data.table,
     dndscv,
     dplyr (>= 1.1.0),
     futile.logger (>= 1.4.3),
@@ -27,17 +27,16 @@ Imports:
     IRanges,
     MutationalPatterns,
     pbapply,
+    plyr,
     plyranges,
+    progressr,
     readr,
-    reshape2,
     Rsamtools,
     S4Vectors,
-    stringr,
     tibble,
     tidyr,
     VariantAnnotation
 Remotes: 
-    bioc::3.16/Biostrings,
     bioc::3.16/GenomeInfoDb,
     bioc::3.16/GenomicRanges,
     bioc::3.16/IRanges,

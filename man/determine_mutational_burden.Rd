@@ -7,7 +7,7 @@
 determine_mutational_burden(x)
 }
 \arguments{
-\item{x}{(SimpleVRangesList): VRangesList containing the mutations}
+\item{x}{(tibble): Tibble containing the mutations}
 }
 \value{
 (tibble): Tibble with information about the mutational burden.

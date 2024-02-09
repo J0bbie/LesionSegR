@@ -4,13 +4,13 @@
 \alias{import_vcf}
 \title{Importing VCF files.}
 \usage{
-import_vcf(x)
+import_vcf(path_vcf)
 }
 \arguments{
-\item{x}{(character): Path to one or multiple VCF file(s).}
+\item{x}{(character): Path to one VCF file(s).}
 }
 \value{
-(VRanges): VRanges object containing the (filtered) somatic variants
+(tibble): Tibble containing the (filtered) somatic variants.
 and strain-specific tagging.
 }
 \description{

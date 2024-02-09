@@ -9,66 +9,55 @@ library(LesionSegR)
 library(VariantAnnotation)
 
 # Parallel settings.
-future::plan(future::multisession, workers = 20)
+future::plan(future::multisession, workers = 5)
 
 # Import metadata. ----
 
-metadata <- readxl::read_xlsx(
-    path = "~/odomLab/LesionSegregration_F1/manuscript/tables/SupplTable1_OverviewSequencing.xlsx",
-    sheet = "WGS (NovaSeq)", trim_ws = TRUE
-) %>%
-    # Only keep the malignant samples.
-    dplyr::filter(!is.na(matched_group)) %>% 
-    dplyr::mutate(sample_strain = paste(sample, strain1, strain2, sep = '_'))
+metadata <- readr::read_tsv("~/jvanriet/git/snakemake-lesionsegregation/workflow/examples/example_samplesheet.tsv", show_col_types = FALSE) %>%
+    dplyr::mutate(
+        sample_strain = paste(sample_name, strain1, strain2, sep = '_'),
+        seqname_strain = paste(sequencing_name, strain1, strain2, sep = '_'),
+    )
 
-# Import somatic variants and CNV. ----
+workflow_dir = "/omics/odcf/analysis/OE0538_projects/DO-0006/processed_data/"
 
-## Import somatic variants. ----
-files_vcf <- base::list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/variants/", pattern = base::paste(base::paste0(metadata$sample, ".*_haplocounted.vcf.gz$"), collapse = "|"), full.names = TRUE)
-data_somaticvariants <- LesionSegR::import_vcf(files_vcf)
+# Subset GTF on genes to analyze. ----
 
+gtf <- rtracklayer::import("/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/gencode.vM34.basic.annotation.gtf", format = "gff") %>%
+    tibble::as_tibble() %>%
+    dplyr::filter(
+        type == "gene",
+        !base::is.na(gene_id)
+    ) %>% 
+    # Subset on classes-of-interest.
+    dplyr::filter(
+        base::grepl("protein_coding|lncRNA|IG_.*_gene", gene_type)
+    ) %>% 
+    # Additional filtering.
+    dplyr::filter(
+        !base::grepl("^Gm[0-9]", gene_name) | gene_name == 'Gm2a'
+    ) %>%
+    # Remove RIKEN lncRNA genes.
+    dplyr::filter(
+        ! (base::grepl("Rik$", gene_name) & gene_type == 'lncRNA')
+    ) %>%
+    # Remove genes without a gene-name.
+    dplyr::filter(!grepl("ENSMUS", gene_name)) %>% 
+    dplyr::distinct(
+        seqnames, start, end, strand, gene_id, gene_type, gene_name
+    ) %>%
+    dplyr::filter(!duplicated(gene_name))
 
 ## Determine WGS characteristics. ----
 
-data_results <- list()
-
-## Flagstats. ----
-
-files_flagstats <- list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/alignment/WGS/", pattern = "*.flagstat$", full.names = TRUE)
-data_results$flagstats <- LesionSegR::read_flagstats(files_flagstats)
-
-## Haplotag ----
-
-files_haplotag<- list.files(path = "~/odomLab/LesionSegregration_F1/data/workflow/logs/haplotyping/", pattern = "^haplotag.*log", full.names = TRUE)
-data_results$haplotag <- LesionSegR::read_haplotag_log(files_haplotag) %>% 
-    dplyr::filter(sample %in% metadata$sample_strain)
-
-
-## Determine mutational burden. ----
-data_results$mutationalBurden <- LesionSegR::determine_mutational_burden(data_somaticvariants)
-
-## Generate the 96-context matrices. ----
-
-data_results$mut_matrixes_96 <- LesionSegR::generate_mutmatrices_96(data_somaticvariants)
-
-## Perform bootstrapped COSMIC-signature analysis. ----
-
-signatures_sbs <- MutationalPatterns::get_known_signatures(muttype = "snv", source = "COSMIC_v3.2", genome = "mm10")
-signatures_indel <- MutationalPatterns::get_known_signatures(muttype = "indel", source = "COSMIC_v3.2", genome = "GRCh37")
-
-data_results$signature_fit_sbs <- MutationalPatterns::fit_to_signatures_bootstrapped(data_results$mut_matrixes_96$sbs, signatures_sbs, n_boots = 100, method = "strict")
-data_results$signature_fit_indel <- MutationalPatterns::fit_to_signatures_bootstrapped(data_results$mut_matrixes_96$indel, signatures_indel, n_boots = 100, method = "strict")
-
-## Determine no. of Ti/Tv and ratio. -----
-
-data_results$ti_tv <- LesionSegR::determine_ti_tv(data_results$mut_matrixes_96$sbs)
+data_combined <- LesionSegR::import_samples(metadata %>% dplyr::filter(sample_name %in% c('f1-liver-tumor-mbm5', 'f1-liver-tumor-mbm3')), workflow_dir, gtf = gtf)
 
 ## dN/dS. ----
 
-data_results$dNdS <- LesionSegR::run_dnds(data_somaticvariants, path_db = "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/refCDS_ENSEMBLv110_GRCm39.rda")
-data_results$dNdS <- data_results$dNdS$finalOutput
+data_combined$dNdS <- LesionSegR::run_dnds(data_combined$somaticvariants, path_db = "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/refCDS_ENSEMBLv110_GRCm39.rda")
+data_combined$dNdS <- data_results$dNdS$finalOutput
 
 # Save the data. ----
 
-saveRDS(data_somaticvariants, "~/odomLab/LesionSegregration_F1/data/rdata/data_somaticvariants.rds")
+saveRDS(data_combined, "~/odomLab/LesionSegregration_F1/data/rdata/data_combined")
 saveRDS(data_results, "~/odomLab/LesionSegregration_F1/data/rdata/data_results.rds")

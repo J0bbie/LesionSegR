@@ -11,7 +11,7 @@ run_dnds(
 )
 }
 \arguments{
-\item{data_muts}{(SimpleVRangesList): VRangesList containing the mutations of all samples.}
+\item{data_muts}{(tibble): tibble containing the mutations of all samples.}
 
 \item{path_db}{(character): Path to the dN/dS database.}
 }

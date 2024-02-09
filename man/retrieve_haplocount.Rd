@@ -4,12 +4,14 @@
 \alias{retrieve_haplocount}
 \title{Count haplotype-specific reads for a given GRanges.}
 \usage{
-retrieve_haplocount(granges, path_bam)
+retrieve_haplocount(granges, path_bam, threads = 10)
 }
 \arguments{
 \item{granges}{(GRanges): GRanges object.}
 
 \item{path_bam}{(character): Path to BAM file.}
+
+\item{threads}{(integer): No. of threads to parallize.}
 }
 \value{
 (tibble): Tibble object with haplotype-specific read counts.
