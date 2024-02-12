@@ -14,9 +14,7 @@ source("analysis/themes.R")
 
 # Import data. ----
 
-data_somaticvariants <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_somaticvariants.rds")
-data_results <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_results.rds")
-
+data_somaticvariants <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_combined.rds")
 
 # Import metadata. ----
 

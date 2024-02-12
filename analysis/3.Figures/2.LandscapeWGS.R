@@ -4,7 +4,6 @@
 # Load libraries. ----
 
 library(dplyr)
-library(ParallelLogger)
 library(patchwork)
 library(extrafont)
 
