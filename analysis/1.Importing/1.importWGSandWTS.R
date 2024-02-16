@@ -13,13 +13,13 @@ future::plan(future::multisession, workers = 5)
 
 # Import metadata. ----
 
-metadata <- readr::read_tsv("~/test/test.tsv", show_col_types = FALSE) %>%
+metadata <- readr::read_tsv("~/jvanriet/git/snakemake-lesionsegregation/workflow/examples/example_samplesheet.tsv", show_col_types = FALSE) %>%
     dplyr::mutate(
         sample_strain = paste(sample_name, strain1, strain2, sep = '_'),
         seqname_strain = paste(sequencing_name, strain1, strain2, sep = '_'),
     )
 
-workflow_dir <- "/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/DNA/Nextseq/38571/003_SM_output/"
+workflow_dir <- "/omics/odcf/analysis/OE0538_projects/DO-0006/processed_data/"
 
 # Subset GTF on genes to analyze. ----
 
@@ -50,7 +50,7 @@ gtf <- rtracklayer::import("/omics/groups/OE0538/internal/projects/sharedData/GR
 
 ## Determine WGS characteristics. ----
 
-data_combined <- import_samples(metadata, workflow_dir, gtf = gtf)
+data_combined <- import_samples(metadata[1:6,], workflow_dir, gtf = gtf)
 
 ## dN/dS. ----
 

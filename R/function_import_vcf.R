@@ -35,55 +35,18 @@ import_vcf <- function(path_vcf) {
     
     futile.logger::flog.info(glue::glue("Filtering on DP >= 10: retaining {base::length(sample_vcf)} of {filter_dp} somatic variants."))
     
-    # Calculate AD and VAF
-    ad_info <- pbapply::pblapply(seq_along(sample_vcf), function(i){
-        row = sample_vcf[i]
-        
-        if(VariantAnnotation::isSNV(row)){
-            
-            ref_count <- switch (
-                as.character(VariantAnnotation::ref(row)),
-                "A" = VariantAnnotation::geno(row)$AU[, , 1],
-                "T" = VariantAnnotation::geno(row)$TU[, , 1],
-                "G" = VariantAnnotation::geno(row)$GU[, , 1],
-                "C" = VariantAnnotation::geno(row)$CU[, , 1]
-            )
-            
-            alt_count <- switch (
-                as.character(VariantAnnotation::alt(row)),
-                "A" = VariantAnnotation::geno(row)$AU[, , 1],
-                "T" = VariantAnnotation::geno(row)$TU[, , 1],
-                "G" = VariantAnnotation::geno(row)$GU[, , 1],
-                "C" = VariantAnnotation::geno(row)$CU[, , 1]
-            )
-        }else{
-            ref_count <- VariantAnnotation::geno(row)$TAR[, , 1]
-            alt_count <- VariantAnnotation::geno(row)$TIR[, , 1]
-        }
-        
-        vaf <- alt_count / (ref_count + alt_count)
-        
-        return(tibble::tibble(i, ref_count, alt_count, vaf))
-        
-    }, cl = 5)
-    
-    ad_info <- dplyr::bind_rows(ad_info)
-    
-    base::suppressWarnings(VariantAnnotation::info(sample_vcf)$VAF <- ad_info$vaf)
-    base::suppressWarnings(VariantAnnotation::info(sample_vcf)$ref_count <- ad_info$ref_count)
-    base::suppressWarnings(VariantAnnotation::info(sample_vcf)$alt_count <- ad_info$alt_count)
-    
-    # Filter on alt_count.
-    filter_alt <- base::length(sample_vcf)
-    sample_vcf <- sample_vcf[VariantAnnotation::info(sample_vcf)$alt_count >= 5, ]
-    
-    futile.logger::flog.info(glue::glue("Filtering on alt. count >= 5: retaining {base::length(sample_vcf)} of {filter_alt} somatic variants."))
-    
     # Filter on VAF.
     filter_vaf <- base::length(sample_vcf)
-    sample_vcf <- sample_vcf[VariantAnnotation::info(sample_vcf)$VAF >= 0.025, ]
-    
+    sample_vcf <- sample_vcf[VariantAnnotation::geno(sample_vcf)$VAF >= 0.025, ]
     futile.logger::flog.info(glue::glue("Filtering on VAF >= 0.025: retaining {base::length(sample_vcf)} of {filter_vaf} somatic variants."))
+    
+    # Add reference and alt counts.
+    suppressWarnings(VariantAnnotation::info(sample_vcf)$altDepth <- round(unlist(VariantAnnotation::geno(sample_vcf)$VAF) * VariantAnnotation::geno(sample_vcf)$DP[, 1]))
+    suppressWarnings(VariantAnnotation::info(sample_vcf)$refDepth <- VariantAnnotation::geno(sample_vcf)$DP[, 1] - VariantAnnotation::info(sample_vcf)$altDepth)
+    
+    filter_alt <- base::length(sample_vcf)
+    sample_vcf <- sample_vcf[VariantAnnotation::info(sample_vcf)$altDepth >= 5, ]
+    futile.logger::flog.info(glue::glue("Filtering on alt. count >= 5: retaining {base::length(sample_vcf)} of {filter_alt} somatic variants."))
     
     # Clean-up VEP annotations. ----
     futile.logger::flog.info("Converting and cleaning annotations")
@@ -133,8 +96,8 @@ import_vcf <- function(path_vcf) {
             ranges = IRanges::IRanges(GenomicRanges::start(sample_vcf), GenomicRanges::end(sample_vcf)),
             ref = VariantAnnotation::ref(sample_vcf),
             alt = VariantAnnotation::alt(sample_vcf),
-            refDepth = VariantAnnotation::info(sample_vcf)$ref_count,
-            altDepth = VariantAnnotation::info(sample_vcf)$alt_count,
+            refDepth = VariantAnnotation::info(sample_vcf)$refDepth,
+            altDepth = VariantAnnotation::info(sample_vcf)$altDepth,
             totalDepth = VariantAnnotation::geno(sample_vcf)$DP[, 1],
             sample = base::gsub("_.*", "", basename(path_vcf)),
             
@@ -147,7 +110,7 @@ import_vcf <- function(path_vcf) {
             H2_Alt = VariantAnnotation::geno(sample_vcf)$H2[, , 2],
             
             # Scores.
-            VAF = VariantAnnotation::info(sample_vcf)$VAF,
+            VAF = VariantAnnotation::geno(sample_vcf)$VAF,
             
             # Annotations.
             Consequence = factor(gsub("&.*", "", VariantAnnotation::info(sample_vcf)$Consequence)),
