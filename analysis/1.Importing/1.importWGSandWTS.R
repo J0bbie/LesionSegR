@@ -9,17 +9,20 @@ library(LesionSegR)
 library(VariantAnnotation)
 
 # Parallel settings.
-future::plan(future::multisession, workers = 5)
+future::plan(future::multisession, workers = 8)
 
 # Import metadata. ----
 
-metadata <- readr::read_tsv("~/jvanriet/git/snakemake-lesionsegregation/workflow/examples/example_samplesheet.tsv", show_col_types = FALSE) %>%
+metadata <- readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/TEST_files_Novaseq/DNA/TEST_38558_Novaseq_DNA_samplesheet.tsv", show_col_types = FALSE) %>%
+    dplyr::bind_rows(readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/TEST_files_Novaseq/RNA/TEST_38415_Novaseq_RNA_sample_sheet.tsv", show_col_types = FALSE)) %>% 
     dplyr::mutate(
+        sample = sequencing_name,
+        sample_name = tolower(sample_name),
         sample_strain = paste(sample_name, strain1, strain2, sep = '_'),
-        seqname_strain = paste(sequencing_name, strain1, strain2, sep = '_'),
+        seqname_strain = paste(sequencing_name, strain1, strain2, sep = '_')
     )
 
-workflow_dir <- "/omics/odcf/analysis/OE0538_projects/DO-0006/processed_data/"
+workflow_dir <- "/omics/odcf/analysis/OE0538_projects/DO-0006/f1_b6_mcas/e480l/projects/DEN_tumors/TEST_same_folders/"
 
 # Subset GTF on genes to analyze. ----
 
@@ -48,15 +51,21 @@ gtf <- rtracklayer::import("/omics/groups/OE0538/internal/projects/sharedData/GR
     ) %>%
     dplyr::filter(!duplicated(gene_name))
 
-## Determine WGS characteristics. ----
+## Import WGS and WTS data. ----
 
-data_combined <- import_samples(metadata[1:6,], workflow_dir, gtf = gtf)
+data_combined <- import_samples(metadata, workflow_dir, gtf = gtf)
 
-## dN/dS. ----
+## Mutational signatures. ----
+
+data_combined$signatures_sbs <- sigminer::sig_fit(data_combined$mutmatrices_sbs, sig_index = 'ALL', sig_db = 'SBS_mm10', auto_reduce = T, type = "relative")
+sigminer::show_catalogue(data_combined$mutmatrices_sbs, mode = "SBS", style = "cosmic", x_label_angle = 90, samples = colnames(data_combined$mutmatrices_sbs))
+
+## Driver analysis: dN/dS. ----
 
 data_combined$dNdS <- LesionSegR::run_dnds(data_combined$somaticvariants, path_db = "/omics/groups/OE0538/internal/projects/sharedData/GRCm39/annotation/refCDS_ENSEMBLv110_GRCm39.rda")
-data_combined$dNdS <- data_results$dNdS$finalOutput
+data_combined$dNdS <- data_combined$dNdS$finalOutput
 
 # Save the data. ----
 
+data_combined$metadata <- metadata
 saveRDS(data_combined, "~/odomLab/LesionSegregration_F1/data/rdata/data_combined.rds")

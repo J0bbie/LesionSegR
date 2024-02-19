@@ -7,9 +7,12 @@ color_scheme <- c(
     "CAST" = "#F7007C",
     "C3H" = "#566EE7",
 
-    "CAST/C3H" = "#F7007C",
-    "B6/CAST" = "#7382D3",
-    "CAST/B6" = "#D75430"
+    "Tumor (Liver; Reciprocal CAST/C3H)" = "#F7007C",
+    "Normal (Liver; Reciprocal CAST/C3H)" = "pink",
+    "Tumor (Liver; Reciprocal B6/CAST)" = "#7382D3",
+    "Normal (Liver; Reciprocal B6/CAST)" = "darkblue",
+    "Normal (Liver; Reciprocal CAST/B6)" = "skyblue",
+    "Tumor (Liver; Reciprocal CAST/B6)" = "#D75430"
 )
 
 theme_job <- ggplot2::theme(

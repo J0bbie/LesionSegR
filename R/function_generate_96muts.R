@@ -1,6 +1,6 @@
 #' @title Generate 96-context matrix of somatic variants.
 #' @param x (VRanges): VRanges containing the mutations of the samples.
-#' @return (list): List of 96-context tibbles (SBS and InDel).
+#' @return (matrix): List of 96-context matrices (SBS and InDel).
 #' @importFrom dplyr %>%
 #' @export
 generate_mutmatrices_96 <- function(x) {
@@ -29,7 +29,6 @@ generate_mutmatrices_96 <- function(x) {
         MutationalPatterns::mut_matrix(ref_genome = "BSgenome.Mmusculus.UCSC.mm39")
     
     colnames(data_mutmatrices$sbs) <- unique(x$sample)
-    data_mutmatrices$sbs <- tibble::as_tibble(data_mutmatrices$sbs, rownames = 'context')
     
     ## InDel. ---
     if(nrow(x[x$mutType == "InDel", ]) != 0){
@@ -39,7 +38,6 @@ generate_mutmatrices_96 <- function(x) {
             MutationalPatterns::count_indel_contexts(.)
         
         colnames(data_mutmatrices$indel) <- unique(x$sample)
-        data_mutmatrices$indel <- tibble::as_tibble(data_mutmatrices$indel, rownames = 'context')
     }
     
     # Return.

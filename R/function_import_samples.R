@@ -16,7 +16,7 @@ import_samples <- function(metadata, workflow_dir, gtf = NULL){
     
     # Loop over the samples. ----
     p <- progressr::progressor(along = metadata$sample_name)
-    data_samples <- future.apply::future_lapply(metadata$sample_name, function(x){
+    data_samples <- future.apply::future_lapply(unique(metadata$sample_name), function(x){
         
         # Determine the paths. ----
         
@@ -101,17 +101,11 @@ import_samples <- function(metadata, workflow_dir, gtf = NULL){
     data_combined$haplotyping <- dplyr::bind_rows(lapply(data_samples, function(x) x$haplotyping))
     data_combined$somaticvariants <- dplyr::bind_rows(lapply(data_samples, function(x) x$somaticvariants))
     data_combined$tumorburden <- dplyr::bind_rows(lapply(data_samples, function(x) x$tumorburden))
-    data_combined$mutmatrices_sbs <- plyr::join_all(plyr::compact(lapply(data_samples, function(x) x$mutmatrices$sbs)), by='context', type='left')
-    
-    data_combined$mutmatrices_indel <- tryCatch({plyr::join_all(plyr::compact(lapply(data_samples, function(x) x$mutmatrices$indel)), by='context', type='left')}, error = function(e) { NULL })
+    data_combined$mutmatrices_sbs <- do.call(cbind, lapply(data_samples, function(x) x$mutmatrices$sbs))
+    data_combined$mutmatrices_indel <- do.call(cbind, lapply(data_samples, function(x) x$mutmatrices$indel))
     
     # Combine Featurecounts.
     data_combined$featurecounts <- tryCatch({ plyr::join_all(plyr::compact(lapply(data_samples, function(x) x$featurecounts)), by='context', type='left') }, error = function(e) { NULL })
-    
-    # Perform bootstrapped COSMIC-signature analysis. ----
-    signatures_sbs <- MutationalPatterns::get_known_signatures(muttype = "snv", source = "COSMIC_v3.2", genome = "mm10")
-    data_combined$signatures_sbs <- tryCatch({ MutationalPatterns::fit_to_signatures(data_combined$mutmatrices_sbs, signatures_sbs) }, error = function(e) { NULL })
-    
     
     # Return statement. ----
     return(data_combined)
