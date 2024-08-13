@@ -14,7 +14,7 @@ source("analysis/themes.R")
 
 # Import data. ----
 
-data_combined <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_combined.rds")
+data_combined <- base::readRDS("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/all_Novaseq_samples/all_data_LesionSegR/data_combined.rds")
 
 # Sorting of samples. ----
 

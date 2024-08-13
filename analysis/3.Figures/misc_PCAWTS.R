@@ -44,9 +44,9 @@ gtf <- rtracklayer::import("/omics/groups/OE0538/internal/projects/sharedData/GR
 # Import counts. ----
 
 files_featurecounts <- list.files(
-    "/omics/odcf/analysis/OE0538_projects/DO-0006/f1_b6_mcas/e480l/projects/DEN_tumors/RNA/Samples_1-50_52-87-89-90_92/Novaseq/38415/SM_output_new_VCF/38415_Novaseq_RNA/counting/WTS/", 
+    "/omics/odcf/analysis/OE0538_projects/DO-0006/f1_b6_mcas/e480l/projects/DEN_tumors/all_Novaseq_samples/", 
     pattern = '_counts.txt$', 
-    full.names = T
+    full.names = T, recursive = T
 )
 
 data_counts <- dplyr::bind_rows(pbapply::pblapply(files_featurecounts, function(x){
@@ -91,9 +91,9 @@ dds_pca <- broom::tidy(prcomp(t(dds_counts_de))) %>%
 
 ggplot2::ggplot(dds_pca, ggplot2::aes(x = PC1, y = PC2, fill = strain, label = tissue)) +
     ggplot2::geom_point(shape = 21, color = 'black') +
-    ggforce::geom_mark_ellipse(mapping = aes(fill = tissue), expand = 0.01, alpha = 0.1) +
-    ggplot2::guides(fill = ggplot2::guide_legend(title = NULL, label.position = 'top', nrow = 1)) +
+    ggforce::geom_mark_ellipse(mapping = ggplot2::aes(fill = tissue), expand = 0.01, alpha = 0.1) +
+    #ggplot2::guides(fill = ggplot2::guide_legend(title = NULL, label.position = 'top', nrow = 1)) +
     ggplot2::scale_fill_manual(values = c('Normal' = 'skyblue', 'Near_adjacent' = 'darkblue', 'Tumor' = 'orange', 'B6_CAST' = 'hotpink', 'CAST_B6' = 'darkred')) +
     ggplot2::scale_y_continuous(limits = c(-50, 50)) +
     ggplot2::scale_x_continuous(limits = c(-100, 100)) +
-    scir::theme_ggplot()
+    ggplot2::theme_classic()

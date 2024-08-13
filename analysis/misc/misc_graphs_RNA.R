@@ -112,7 +112,7 @@ DESeq2::plotCounts(dds, gene = 'H19', intgroup = 'tissue', normalized = T)
 
 # no magic anymore ------------------------
 
-# PCA on most variable genes --------------
+# PCA on most variable genes (total counts)--------------
 pca <- stats::prcomp(t(dds_counts_de))
 pca_data <- tibble::as_tibble(pca$x, rownames = 'sample') %>%
     #add metadata 
@@ -127,22 +127,29 @@ ggplot2::ggplot(dds_pca, ggplot2::aes(x = PC1, y = PC2, fill = strain, label = t
    
 
 # heatmap -----------------
-dds_counts_heatmap <-  tibble::as_tibble(dds_counts, rownames = NA) %>% 
-    tibble::rownames_to_column(var = "gene") %>%
-    tidyr::pivot_longer(cols = colnames(.)[-1]) %>% 
-    dplyr::inner_join(metadata, by = c(name = "sequencing_name"))
+dds_counts_heatmap <-  tibble::as_tibble(dds_counts_de, rownames = 'gene') %>% 
+    tidyr::pivot_longer(cols = dplyr::starts_with('AS-'), names_to = 'sample', values_to = 'value') %>% 
+    dplyr::inner_join(metadata, by = c(sample = "sequencing_name"))
 
-# add log expression of genes 
-dds_counts_heatmap$log.expression <- log(dds_counts_heatmap$value)
 
-# DEG
-dds_counts_heatmap_de <-  tibble::as_tibble(dds_counts_de, rownames = NA) %>% 
-    tibble::rownames_to_column(var = "gene") %>%
-    tidyr::pivot_longer(cols = colnames(.)[-1]) %>% 
-    dplyr::inner_join(metadata, by = c(name = "sequencing_name"))
+tidyheatmaps::tidy_heatmap(
+    dds_counts_heatmap %>% dplyr::filter(gene %in% (genes_de %>% dplyr::top_n(10000, -padj) %>% dplyr::pull(row))),
+    rows = gene,
+    column = sample_name,
+    values = value, 
+    annotation_col = c(tissue, strain), 
+    scale = 'row', 
+    show_rownames = FALSE, 
+    cluster_rows = TRUE,
+    cluster_cols = TRUE, cellheight = 0.02, cellwidth = 3.5, border_color = 'white',
+    show_colnames = FALSE, 
+    clustering_distance_cols = "euclidean", 
+    clustering_distance_rows = "euclidean", 
+    clustering_method = "ward.D2", 
+    treeheight_col = 20, treeheight_row = 20, fontsize = 4,
+    colors = grDevices::colorRampPalette(c("#0072B2", "white", "#A51122"))(100), color_legend_n = 100
+)
 
-# add log expression of genes 
-dds_counts_heatmap_de$log.expression <- log(dds_counts_heatmap_de$value)
 
 
 # mots variable genes
@@ -154,31 +161,28 @@ dds_counts_heatmap_var <-  tibble::as_tibble(dds_counts_var, rownames = NA) %>%
 # add log expression of genes 
 dds_counts_heatmap_var$log.expression <- log(dds_counts_heatmap_var$value)
 
-#heatmap 
 
-# exp.heatmap <- ggplot2::ggplot(data = dds_counts_heatmap, mapping = ggplot2::aes(x = sample_name,
+
+pheatmap::pheatmap(dds_counts_de, scale = "row",)
+
+
+
+# exp.heatmap_per_tissue <- pheatmap::pheatmap(mat = dds_counts_heatmap), 
+#                                              mapping = ggplot2::aes(x = sample_name,
 #                                                      y = gene,
 #                                                      fill = log.expression)) +
 #     ggplot2::geom_tile() +
-#     ggplot2::xlab(label = "Sample") + # Add a nicer x-axis title
-#     ggplot2::theme(axis.title.y = ggplot2::element_blank(), # Remove the y-axis title
-#           axis.text.x = ggplot2::element_text(angle = 45, vjust = 0.5)) # Rotate the x-axis labels
+#     ggplot2::xlab(label = "Sample") +
+#     # facet_grid makes two panels, one for control, one for flu:
+#     ggplot2::facet_grid(~ tissue, switch = "x", scales = "free_x", space = "free_x") + 
+#     ggplot2::theme(axis.title.y = ggplot2::element_blank(),
+#           axis.text.x = ggplot2::element_text(angle = 45, vjust = 0.5))
 # 
-# exp.heatmap
+# exp.heatmap_per_tissue
 
 
 
-exp.heatmap_per_tissue <- ggplot2::ggplot(data = dds_counts_heatmap_var, mapping = ggplot2::aes(x = sample_name,
-                                                     y = gene,
-                                                     fill = log.expression)) +
-    ggplot2::geom_tile() +
-    ggplot2::xlab(label = "Sample") +
-    # facet_grid makes two panels, one for control, one for flu:
-    ggplot2::facet_grid(~ tissue, switch = "x", scales = "free_x", space = "free_x") + 
-    ggplot2::theme(axis.title.y = ggplot2::element_blank(),
-          axis.text.x = ggplot2::element_text(angle = 45, vjust = 0.5))
 
-exp.heatmap_per_tissue
 
 
 # H19 graphs --------------

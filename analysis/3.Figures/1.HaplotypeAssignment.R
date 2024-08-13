@@ -2,7 +2,7 @@
 # Author: J. van Riet
 
 # Load libraries. ----
-
+setwd(dir = "/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake")
 library(dplyr)
 library(patchwork)
 library(extrafont)
@@ -14,7 +14,7 @@ source("analysis/themes.R")
 
 # Import data. ----
 
-data_combined <- base::readRDS("~/odomLab/LesionSegregration_F1/data/rdata/data_combined.rds")
+data_combined <- base::readRDS("all_Novaseq_samples/all_data_LesionSegR/data_combined.rds")
 
 ## QC - Overview ----
 
@@ -65,14 +65,12 @@ data_combined$metadata %>%
 # QC - Visualize the distribution of strain-assigned somatic variants. ----
 
 data_distributions <- data_combined$somaticvariants %>% 
-    dplyr::inner_join(metadata) %>%
+    dplyr::inner_join(metadata, by = c("sample" = "sequencing_name")) %>%
     dplyr::mutate(
         delta = H1_Alt - H2_Alt,
-        origin_mutant2 = 'B6',
-        origin_mutant2 = dplyr::if_else(grepl('CAST/C3H', group) & origin_mutant == 'H1', 'CAST', origin_mutant2),
-        origin_mutant2 = dplyr::if_else(grepl('CAST/C3H', group) & origin_mutant == 'H2', 'C3H', origin_mutant2),
-        origin_mutant2 = dplyr::if_else(grepl('B6/CAST', group) & origin_mutant == 'H2', 'CAST', origin_mutant2),
-        origin_mutant2 = dplyr::if_else(grepl('CAST/B6', group) & origin_mutant == 'H2', 'CAST', origin_mutant2),
+        origin_mutant2 = 'CAST',
+        origin_mutant2 = dplyr::if_else(grepl('B6/CAST', group) & origin_mutant == 'H2', 'B6', origin_mutant2),
+        origin_mutant2 = dplyr::if_else(grepl('CAST/B6', group) & origin_mutant == 'H2', 'B6', origin_mutant2),
     ) %>%
     dplyr::filter(delta != 0, origin_mutant != 'UA')
 
@@ -90,7 +88,7 @@ ggplot2::ggplot(data_distributions %>% dplyr::filter(!grepl('chrX|chrY', seqname
     theme_job
 
 # Plot distribution - Per chromosome.
-ggplot2::ggplot(data_distributions %>% dplyr::filter(sample == 'AS-1132164'), ggplot2::aes(x = delta, fill = origin_mutant2)) +
+ggplot2::ggplot(data_distributions %>% dplyr::filter(sample == 'AS-1132106'), ggplot2::aes(x = delta, fill = origin_mutant2)) +
     ggplot2::geom_histogram(binwidth = .5, na.rm = TRUE, color = "grey10", lwd = ggplot2::rel(.33)) +
     ggplot2::scale_y_continuous(expand = c(0, 0), limits = c(0, 400)) +
     ggplot2::scale_x_continuous(limits = c(-25, 25), breaks = seq(-25, 25, 5)) +

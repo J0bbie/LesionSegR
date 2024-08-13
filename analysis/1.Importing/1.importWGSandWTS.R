@@ -9,12 +9,12 @@ library(LesionSegR)
 library(VariantAnnotation)
 
 # Parallel settings.
-future::plan(future::multisession, workers = 8)
+future::plan(future::multisession, workers = 16)
 
 # Import metadata. ----
 
-metadata <- readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/TEST_files_Novaseq/DNA/TEST_38558_Novaseq_DNA_samplesheet.tsv", show_col_types = FALSE) %>%
-    dplyr::bind_rows(readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/TEST_files_Novaseq/RNA/TEST_38415_Novaseq_RNA_sample_sheet.tsv", show_col_types = FALSE)) %>% 
+metadata <- readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/all_Novaseq_samples/all_Novaseq_samples_BlxCast.tsv", show_col_types = FALSE) %>%
+   # dplyr::bind_rows(readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/TEST_files_Novaseq/RNA/TEST_38415_Novaseq_RNA_sample_sheet.tsv", show_col_types = FALSE)) %>% 
     dplyr::mutate(
         sample = sequencing_name,
         sample_name = tolower(sample_name),
@@ -22,7 +22,9 @@ metadata <- readr::read_tsv("/omics/groups/OE0538/internal/users/e480l/projects/
         seqname_strain = paste(sequencing_name, strain1, strain2, sep = '_')
     )
 
-workflow_dir <- "/omics/odcf/analysis/OE0538_projects/DO-0006/f1_b6_mcas/e480l/projects/DEN_tumors/TEST_same_folders/"
+#metadata <- head(metadata, 5)
+# where to find the samples 
+workflow_dir <- "/omics/odcf/analysis/OE0538_projects/DO-0006/f1_b6_mcas/e480l/projects/DEN_tumors/all_Novaseq_samples/"
 
 # Subset GTF on genes to analyze. ----
 
@@ -68,4 +70,7 @@ data_combined$dNdS <- data_combined$dNdS$finalOutput
 # Save the data. ----
 
 data_combined$metadata <- metadata
-saveRDS(data_combined, "~/odomLab/LesionSegregration_F1/data/rdata/data_combined.rds")
+saveRDS(data_combined, "/omics/groups/OE0538/internal/users/e480l/projects/DEN_tumors/snakemake/
+        all_Novaseq_samples/all_data_LesionSegR/data_combined.rds")
+
+data_combined$dNdS

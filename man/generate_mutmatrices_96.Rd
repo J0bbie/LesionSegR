@@ -10,7 +10,7 @@ generate_mutmatrices_96(x)
 \item{x}{(VRanges): VRanges containing the mutations of the samples.}
 }
 \value{
-(list): List of 96-context tibbles (SBS and InDel).
+(matrix): List of 96-context matrices (SBS and InDel).
 }
 \description{
 Generate 96-context matrix of somatic variants.

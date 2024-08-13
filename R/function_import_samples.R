@@ -45,24 +45,27 @@ import_samples <- function(metadata, workflow_dir, gtf = NULL){
         # Import data. ----
         current_sample <- list()
         
-        # Import flagstats. ----
-        current_sample$flagstats <- LesionSegR::read_flagstats(c(current_sample_WGS$path_flagstats, current_sample_WTS$path_flagstats))
-        
-        # Import haplotyping stats. ----
-        current_sample$haplotyping <- LesionSegR::read_haplotag_log(c(current_sample_WGS$path_haplotag, current_sample_WTS$path_haplotag))
-        
-        # Process somatic data.  ----
-        # Normals have no somatic variants.
-        if(!is.na(current_sample_WGS$matched_group)){
-            # Import somatic variants. ----
-            current_sample$somaticvariants <- LesionSegR::import_vcf(current_sample_WGS$path_vcf)
-            
-            if(!is.null(current_sample$somaticvariants)){
-                # Calc. TMB.
-                current_sample$tumorburden <- LesionSegR::determine_mutational_burden(current_sample$somaticvariants)
+        if(nrow(current_sample_WGS) != 0){
                 
-                # Generate the 96-context matrices. ----
-                current_sample$mutmatrices <- LesionSegR::generate_mutmatrices_96(current_sample$somaticvariants)
+            # Import flagstats. ----
+            current_sample$flagstats <- LesionSegR::read_flagstats(c(current_sample_WGS$path_flagstats, current_sample_WTS$path_flagstats))
+            
+            # Import haplotyping stats. ----
+            current_sample$haplotyping <- LesionSegR::read_haplotag_log(c(current_sample_WGS$path_haplotag, current_sample_WTS$path_haplotag))
+            
+            # Process somatic data.  ----
+            # Normals have no somatic variants.
+            if(!is.na(current_sample_WGS$matched_group)){
+                # Import somatic variants. ----
+                current_sample$somaticvariants <- LesionSegR::import_vcf(current_sample_WGS$path_vcf)
+                
+                if(!is.null(current_sample$somaticvariants)){
+                    # Calc. TMB.
+                    current_sample$tumorburden <- LesionSegR::determine_mutational_burden(current_sample$somaticvariants)
+                    
+                    # Generate the 96-context matrices. ----
+                    current_sample$mutmatrices <- LesionSegR::generate_mutmatrices_96(current_sample$somaticvariants)
+                }
             }
         }
         

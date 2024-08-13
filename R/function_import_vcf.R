@@ -41,8 +41,13 @@ import_vcf <- function(path_vcf) {
     futile.logger::flog.info(glue::glue("Filtering on VAF >= 0.025: retaining {base::length(sample_vcf)} of {filter_vaf} somatic variants."))
     
     # Add reference and alt counts.
+    ### modify here so that the alt and ref Depths are actually correct
+    # suppressWarnings(VariantAnnotation::info(sample_vcf)$altDepth <- round(unlist(VariantAnnotation::geno(sample_vcf)$VAF) * VariantAnnotation::geno(sample_vcf)$DP[, 1]))
+    # suppressWarnings(VariantAnnotation::info(sample_vcf)$refDepth <- VariantAnnotation::geno(sample_vcf)$DP[, 1] - VariantAnnotation::info(sample_vcf)$altDepth)
+    
     suppressWarnings(VariantAnnotation::info(sample_vcf)$altDepth <- round(unlist(VariantAnnotation::geno(sample_vcf)$VAF) * VariantAnnotation::geno(sample_vcf)$DP[, 1]))
     suppressWarnings(VariantAnnotation::info(sample_vcf)$refDepth <- VariantAnnotation::geno(sample_vcf)$DP[, 1] - VariantAnnotation::info(sample_vcf)$altDepth)
+    
     
     filter_alt <- base::length(sample_vcf)
     sample_vcf <- sample_vcf[VariantAnnotation::info(sample_vcf)$altDepth >= 5, ]
